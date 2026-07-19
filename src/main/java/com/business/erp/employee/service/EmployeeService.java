@@ -1,0 +1,32 @@
+package com.business.erp.employee.service;
+
+import com.business.erp.employee.dto.request.CreateEmployeeRequest;
+import com.business.erp.employee.dto.request.UpdateEmployeeRequest;
+import com.business.erp.employee.dto.request.UpdateSalaryRequest;
+import com.business.erp.employee.dto.response.EmployeeResponse;
+import com.business.erp.employee.dto.response.SalaryHistoryResponse;
+import com.business.erp.employee.entity.Employee;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
+import java.util.List;
+
+public interface EmployeeService {
+    EmployeeResponse create(CreateEmployeeRequest request, String createdBy);
+
+    Page<EmployeeResponse> findAll(Employee.EmployeeStatus status, String search, Pageable pageable);
+
+    EmployeeResponse findById(Long id);
+
+    EmployeeResponse update(Long id, UpdateEmployeeRequest request);
+
+    EmployeeResponse updateSalary(Long id, UpdateSalaryRequest request, String updatedBy);
+
+    EmployeeResponse deactivate(Long id);
+
+    List<SalaryHistoryResponse> getSalaryHistory(Long id);
+
+    Employee getEmployee(Long id);
+
+    List<Employee> getActiveEmployees();
+}
