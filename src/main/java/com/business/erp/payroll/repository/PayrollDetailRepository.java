@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Optional;
 
 public interface PayrollDetailRepository extends JpaRepository<PayrollDetail, Long> {
+
     List<PayrollDetail> findByPayrollRunId(Long runId);
 
     Optional<PayrollDetail> findByPayrollRunIdAndEmployeeId(Long runId, Long empId);
@@ -14,4 +15,8 @@ public interface PayrollDetailRepository extends JpaRepository<PayrollDetail, Lo
     Optional<PayrollDetail> findByPayrollRun_YearAndPayrollRun_MonthAndEmployeeId(int year, int month, Long empId);
 
     void deleteByPayrollRunId(Long runId);
+
+    List<PayrollDetail> findByPayrollRunIdAndPaymentStatus(Long runId, PayrollDetail.PaymentStatus paymentStatus);
+
+    long countByPayrollRunIdAndPaymentStatus(Long runId, PayrollDetail.PaymentStatus paymentStatus);
 }

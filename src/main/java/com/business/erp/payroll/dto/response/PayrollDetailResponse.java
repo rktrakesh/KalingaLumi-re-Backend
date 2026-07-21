@@ -4,6 +4,7 @@ import lombok.Builder;
 import lombok.Data;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 @Data
 @Builder
@@ -27,4 +28,7 @@ public class PayrollDetailResponse {
     private BigDecimal netSalary;
     private Boolean salaryCapped;
     private String paymentStatus;
+    private LocalDate paidDate;
+    private String paymentMode;
+    private String paidBy;
 }
