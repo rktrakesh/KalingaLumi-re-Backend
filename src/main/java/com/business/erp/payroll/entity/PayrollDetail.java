@@ -3,7 +3,6 @@ package com.business.erp.payroll.entity;
 import com.business.erp.employee.entity.Employee;
 import jakarta.persistence.*;
 import lombok.*;
-import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -73,6 +72,7 @@ public class PayrollDetail {
     @Builder.Default
     private Boolean salaryCapped = false;
 
+    // Payment tracking
     @Enumerated(EnumType.STRING)
     @Column(name = "payment_status", nullable = false)
     @JdbcTypeCode(SqlTypes.VARCHAR)
@@ -81,6 +81,14 @@ public class PayrollDetail {
 
     @Column(name = "paid_date")
     private LocalDate paidDate;
+
+    @Column(name = "payment_mode", length = 10)
+    private String paymentMode;
+
+    @Column(name = "paid_by", length = 50)
+    private String paidBy;
+
+    // Audit
     @Column(name = "created_by", length = 50)
     private String createdBy;
     @Column(name = "created_date", nullable = false)
