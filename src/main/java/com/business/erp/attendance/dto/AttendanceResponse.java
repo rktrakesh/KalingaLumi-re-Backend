@@ -24,4 +24,6 @@ public class AttendanceResponse {
     private LocalDateTime createdDate;
     private String updatedBy;
     private LocalDateTime updatedDate;
+    private Boolean lockedForPayroll;
+    private Long lockedByPayrollRunId;
 }

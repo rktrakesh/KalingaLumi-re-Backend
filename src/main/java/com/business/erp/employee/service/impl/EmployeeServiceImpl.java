@@ -129,6 +129,13 @@ public class EmployeeServiceImpl implements EmployeeService {
         return employeeRepository.findByStatus(Employee.EmployeeStatus.ACTIVE);
     }
 
+    @Override
+    public java.util.Map<Long, Employee> getEmployeesByIds(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) return java.util.Map.of();
+        return employeeRepository.findAllById(ids).stream()
+                .collect(Collectors.toMap(Employee::getId, e -> e));
+    }
+
     private EmployeeResponse toResponse(Employee e) {
         return EmployeeResponse.builder()
                 .id(e.getId()).employeeCode(e.getEmployeeCode()).name(e.getName())

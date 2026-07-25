@@ -117,6 +117,16 @@ public class OvertimeServiceImpl implements OvertimeService {
         return mins != null ? mins : 0;
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public java.util.Map<LocalDate, Integer> getApprovedMinutesByDate(Long empId, LocalDate from, LocalDate to) {
+        return overtimeRepository.findApprovedInRange(empId, from, to).stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        OvertimeRequest::getOvertimeDate,
+                        o -> o.getApprovedMinutes() != null ? o.getApprovedMinutes() : 0,
+                        Integer::sum));
+    }
+
     private OvertimeRequest getOT(Long id) {
         return overtimeRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("OvertimeRequest", id));

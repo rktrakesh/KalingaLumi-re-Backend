@@ -12,4 +12,6 @@ public class HolidayResponse {
     private LocalDate holidayDate;
     private String name;
     private String holidayType;
+    private Boolean workAllowed;
+    private String applicableState;
 }

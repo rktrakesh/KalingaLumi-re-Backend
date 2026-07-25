@@ -23,4 +23,7 @@ public interface OvertimeService {
     PageResponse<OvertimeResponse> search(Long empId, OvertimeRequest.OvertimeStatus status, Pageable pageable);
 
     Integer getApprovedMinutesForPayroll(Long empId, LocalDate from, LocalDate to);
+
+    /** Approved overtime minutes per calendar date within the range — used to bucket OT by day classification. */
+    java.util.Map<LocalDate, Integer> getApprovedMinutesByDate(Long empId, LocalDate from, LocalDate to);
 }

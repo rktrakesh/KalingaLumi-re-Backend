@@ -5,8 +5,7 @@ target/
 *.class
 
 # IntelliJ files
-.idea/*
-!.idea/.gitignore
+.idea/
 *.iml
 *.iws
 

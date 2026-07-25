@@ -24,4 +24,9 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long
                               Pageable pageable);
 
     boolean existsByEmployeeIdAndLeaveDateAndStatusIn(Long empId, LocalDate date, List<LeaveRequest.LeaveStatus> statuses);
+
+    @Query("SELECT l.leaveDate FROM LeaveRequest l WHERE l.employee.id = :empId AND l.status = 'APPROVED' " +
+            "AND l.leaveDate BETWEEN :from AND :to")
+    List<LocalDate> findApprovedLeaveDates(@Param("empId") Long empId,
+                                           @Param("from") LocalDate from, @Param("to") LocalDate to);
 }

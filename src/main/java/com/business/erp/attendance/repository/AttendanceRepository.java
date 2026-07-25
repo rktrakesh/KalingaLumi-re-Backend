@@ -4,6 +4,7 @@ import com.business.erp.attendance.entity.AttendanceRecord;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -41,4 +42,21 @@ public interface AttendanceRepository extends JpaRepository<AttendanceRecord, Lo
             "AND a.attendanceDate BETWEEN :from AND :to AND a.status = 'PRESENT'")
     Integer sumWorkedMinutesByEmployeeAndMonth(@Param("empId") Long empId,
                                                @Param("from") LocalDate from, @Param("to") LocalDate to);
+
+    List<AttendanceRecord> findByEmployeeIdAndAttendanceDateBetween(Long empId, LocalDate from, LocalDate to);
+
+    List<AttendanceRecord> findByAttendanceDateBetween(LocalDate from, LocalDate to);
+
+    // ── Payroll freeze support ──────────────────────────────────────────────
+    @Modifying
+    @Query("UPDATE AttendanceRecord a SET a.lockedForPayroll = true, a.lockedByPayrollRunId = :runId " +
+            "WHERE a.attendanceDate BETWEEN :from AND :to")
+    int lockRange(@Param("from") LocalDate from, @Param("to") LocalDate to, @Param("runId") Long runId);
+
+    @Modifying
+    @Query("UPDATE AttendanceRecord a SET a.lockedForPayroll = false, a.lockedByPayrollRunId = null " +
+            "WHERE a.lockedByPayrollRunId = :runId")
+    int unlockByRunId(@Param("runId") Long runId);
+
+    boolean existsByAttendanceDateBetweenAndLockedForPayrollTrue(LocalDate from, LocalDate to);
 }

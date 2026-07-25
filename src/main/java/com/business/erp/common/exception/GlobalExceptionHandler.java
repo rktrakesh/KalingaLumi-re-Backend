@@ -44,6 +44,18 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.error(ex.getMessage()));
     }
 
+    @ExceptionHandler(AttendanceLockedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAttendanceLocked(AttendanceLockedException ex) {
+        log.warn("GlobalExceptionHandler:handleAttendanceLocked :: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.LOCKED).body(ApiResponse.error(ex.getMessage()));
+    }
+
+    @ExceptionHandler(InvalidPayrollStateException.class)
+    public ResponseEntity<ApiResponse<Void>> handleInvalidPayrollState(InvalidPayrollStateException ex) {
+        log.warn("GlobalExceptionHandler:handleInvalidPayrollState :: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.error(ex.getMessage()));
+    }
+
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<ApiResponse<Void>> handleBadCredentials(BadCredentialsException ex) {
         log.warn("GlobalExceptionHandler:handleBadCredentials :: Invalid credentials attempt");

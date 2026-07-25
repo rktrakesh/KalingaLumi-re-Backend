@@ -30,6 +30,10 @@ public class PayrollDetail {
     @JoinColumn(name = "employee_id", nullable = false)
     private Employee employee;
 
+    @Column(name = "calculation_version", nullable = false)
+    @Builder.Default
+    private Integer calculationVersion = 1;
+
     // Snapshot fields
     @Column(name = "employee_code", nullable = false, length = 20)
     private String employeeCode;
@@ -44,6 +48,29 @@ public class PayrollDetail {
     @Column(name = "hourly_rate", nullable = false, precision = 12, scale = 4)
     private BigDecimal hourlyRate;
 
+    // Day-classification counts (from the payroll calendar engine)
+    @Column(name = "present_days", nullable = false)
+    @Builder.Default
+    private Integer presentDays = 0;
+    @Column(name = "weekly_off_days", nullable = false)
+    @Builder.Default
+    private Integer weeklyOffDays = 0;
+    @Column(name = "weekly_off_worked_days", nullable = false)
+    @Builder.Default
+    private Integer weeklyOffWorkedDays = 0;
+    @Column(name = "holiday_days", nullable = false)
+    @Builder.Default
+    private Integer holidayDays = 0;
+    @Column(name = "holiday_worked_days", nullable = false)
+    @Builder.Default
+    private Integer holidayWorkedDays = 0;
+    @Column(name = "automatic_paid_leave_days", nullable = false)
+    @Builder.Default
+    private Integer automaticPaidLeaveDays = 0;
+    @Column(name = "absent_days", nullable = false)
+    @Builder.Default
+    private Integer absentDays = 0;
+
     // Computed fields
     @Column(name = "worked_minutes", nullable = false)
     private Integer workedMinutes;
@@ -55,6 +82,39 @@ public class PayrollDetail {
     private Integer overtimeMinutes = 0;
     @Column(name = "overtime_multiplier", nullable = false, precision = 4, scale = 2)
     private BigDecimal overtimeMultiplier;
+    @Column(name = "holiday_ot_minutes", nullable = false)
+    @Builder.Default
+    private Integer holidayOtMinutes = 0;
+    @Column(name = "weekly_off_ot_minutes", nullable = false)
+    @Builder.Default
+    private Integer weeklyOffOtMinutes = 0;
+    @Column(name = "weekly_off_multiplier", nullable = false, precision = 6, scale = 3)
+    @Builder.Default
+    private BigDecimal weeklyOffMultiplier = BigDecimal.valueOf(1.5);
+    @Column(name = "holiday_ot_multiplier", nullable = false, precision = 6, scale = 3)
+    @Builder.Default
+    private BigDecimal holidayOtMultiplier = BigDecimal.valueOf(2.0);
+
+    @Column(name = "weekly_off_pay", nullable = false, precision = 12, scale = 2)
+    @Builder.Default
+    private BigDecimal weeklyOffPay = BigDecimal.ZERO;
+    @Column(name = "holiday_ot_pay", nullable = false, precision = 12, scale = 2)
+    @Builder.Default
+    private BigDecimal holidayOtPay = BigDecimal.ZERO;
+    /** Stored directly (mirrors weeklyOffPay/holidayOtPay) so nothing downstream re-derives a PayrollCalculationEngine formula. */
+    @Column(name = "overtime_pay", nullable = false, precision = 12, scale = 2)
+    @Builder.Default
+    private BigDecimal overtimePay = BigDecimal.ZERO;
+    @Column(name = "leave_encashment_days", nullable = false, precision = 6, scale = 2)
+    @Builder.Default
+    private BigDecimal leaveEncashmentDays = BigDecimal.ZERO;
+    @Column(name = "leave_encashment_amount", nullable = false, precision = 12, scale = 2)
+    @Builder.Default
+    private BigDecimal leaveEncashmentAmount = BigDecimal.ZERO;
+    @Column(name = "loss_of_pay_amount", nullable = false, precision = 12, scale = 2)
+    @Builder.Default
+    private BigDecimal lossOfPayAmount = BigDecimal.ZERO;
+
     @Column(name = "gross_salary", nullable = false, precision = 12, scale = 2)
     private BigDecimal grossSalary;
     @Column(name = "loan_interest_deduction", nullable = false, precision = 12, scale = 2)

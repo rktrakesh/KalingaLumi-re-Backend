@@ -58,7 +58,7 @@ public class MonthClosingServiceImpl implements MonthClosingService {
                 com.business.erp.attendance.entity.AttendanceRecord.AttendanceStatus.PENDING_CHECKOUT);
         long pendingOT = overtimeRepo.countByMonthAndStatus(from, to,
                 com.business.erp.overtime.entity.OvertimeRequest.OvertimeStatus.PENDING);
-        boolean payrollGenerated = payrollRepo.existsByYearAndMonth(year, month);
+        boolean payrollGenerated = payrollRepo.existsByYearAndMonthAndIsCurrentVersionTrue(year, month);
         boolean requiresPayroll = settingsService.getBooleanValue(
                 com.business.erp.settings.enums.SettingKey.MONTH_CLOSING_REQUIRES_PAYROLL);
 

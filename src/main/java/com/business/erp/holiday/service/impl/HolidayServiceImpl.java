@@ -37,7 +37,8 @@ public class HolidayServiceImpl implements HolidayService {
         if (holidayRepository.existsByHolidayDate(req.getHolidayDate()))
             throw new BusinessException("Holiday already exists for date: " + req.getHolidayDate());
         Holiday holiday = holidayRepository.save(Holiday.builder()
-                .holidayDate(req.getHolidayDate()).name(req.getName()).holidayType(req.getHolidayType()).build());
+                .holidayDate(req.getHolidayDate()).name(req.getName()).holidayType(req.getHolidayType())
+                .workAllowed(req.isWorkAllowed()).applicableState(req.getApplicableState()).build());
         List<Employee> activeEmps = employeeService.getActiveEmployees();
         int created = 0;
         for (Employee emp : activeEmps) {
@@ -84,6 +85,7 @@ public class HolidayServiceImpl implements HolidayService {
 
     private HolidayResponse toResponse(Holiday h) {
         return HolidayResponse.builder().id(h.getId()).holidayDate(h.getHolidayDate())
-                .name(h.getName()).holidayType(h.getHolidayType().name()).build();
+                .name(h.getName()).holidayType(h.getHolidayType().name())
+                .workAllowed(h.getWorkAllowed()).applicableState(h.getApplicableState()).build();
     }
 }

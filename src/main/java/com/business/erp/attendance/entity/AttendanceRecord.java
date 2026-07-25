@@ -4,7 +4,6 @@ import com.business.erp.common.audit.AuditableEntity;
 import com.business.erp.employee.entity.Employee;
 import jakarta.persistence.*;
 import lombok.*;
-import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -49,6 +48,19 @@ public class AttendanceRecord extends AuditableEntity {
 
     @Column(columnDefinition = "TEXT")
     private String remarks;
+
+    /**
+     * True once a payroll run covering this date has reached APPROVED status or beyond.
+     * While locked, this record is read-only to everyone except the payroll reopen flow.
+     * Attendance facts themselves are never altered by payroll — this is purely a freeze flag.
+     */
+    @Column(name = "locked_for_payroll", nullable = false)
+    @Builder.Default
+    private Boolean lockedForPayroll = false;
+
+    /** The payroll run that locked this record, for traceability. Null while unlocked. */
+    @Column(name = "locked_by_payroll_run_id")
+    private Long lockedByPayrollRunId;
 
     public enum AttendanceStatus {PRESENT, ABSENT, PAID_LEAVE, HOLIDAY, PENDING_CHECKOUT}
 }

@@ -8,6 +8,7 @@ import com.business.erp.attendance.entity.AttendanceRecord;
 import com.business.erp.attendance.repository.AttendanceRepository;
 import com.business.erp.attendance.service.AttendanceService;
 import com.business.erp.common.audit.AuditService;
+import com.business.erp.common.exception.AttendanceLockedException;
 import com.business.erp.common.exception.BusinessException;
 import com.business.erp.common.exception.MonthClosedException;
 import com.business.erp.common.exception.ResourceNotFoundException;
@@ -65,6 +66,8 @@ public class AttendanceServiceImpl implements AttendanceService {
     public AttendanceResponse checkOut(Long attendanceId, CheckOutRequest req) {
         log.info("AttendanceServiceImpl:checkOut :: attendanceId={}", attendanceId);
         AttendanceRecord record = getRecord(attendanceId);
+        if (Boolean.TRUE.equals(record.getLockedForPayroll()))
+            throw new AttendanceLockedException(record.getAttendanceDate());
         if (record.getCheckIn() == null) throw new BusinessException("Cannot check out without check-in");
         if (record.getCheckOut() != null) throw new BusinessException("Already checked out");
         record.setCheckOut(req.getCheckOut());
@@ -89,6 +92,8 @@ public class AttendanceServiceImpl implements AttendanceService {
     public AttendanceResponse correct(Long id, CorrectAttendanceRequest req, String updatedBy) {
         log.info("AttendanceServiceImpl:correct :: id={} by={}", id, updatedBy);
         AttendanceRecord record = getRecord(id);
+        if (Boolean.TRUE.equals(record.getLockedForPayroll()))
+            throw new AttendanceLockedException(record.getAttendanceDate());
         if (monthClosingService.isMonthClosed(record.getAttendanceDate().getYear(),
                 record.getAttendanceDate().getMonthValue()))
             throw new MonthClosedException(record.getAttendanceDate().getYear(),
@@ -154,6 +159,21 @@ public class AttendanceServiceImpl implements AttendanceService {
         log.info("AttendanceServiceImpl:markPendingCheckouts :: Marked {} records as PENDING_CHECKOUT", missed.size());
     }
 
+    @Override
+    @Transactional
+    public void lockForPayroll(LocalDate from, LocalDate to, Long payrollRunId) {
+        int locked = attendanceRepository.lockRange(from, to, payrollRunId);
+        log.info("AttendanceServiceImpl:lockForPayroll :: from={} to={} runId={} recordsLocked={}",
+                from, to, payrollRunId, locked);
+    }
+
+    @Override
+    @Transactional
+    public void unlockForPayroll(Long payrollRunId) {
+        int unlocked = attendanceRepository.unlockByRunId(payrollRunId);
+        log.info("AttendanceServiceImpl:unlockForPayroll :: runId={} recordsUnlocked={}", payrollRunId, unlocked);
+    }
+
     private AttendanceRecord getRecord(Long id) {
         return attendanceRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("AttendanceRecord", id));
@@ -166,6 +186,7 @@ public class AttendanceServiceImpl implements AttendanceService {
                 .attendanceDate(r.getAttendanceDate()).checkIn(r.getCheckIn()).checkOut(r.getCheckOut())
                 .workedMinutes(r.getWorkedMinutes()).status(r.getStatus().name()).remarks(r.getRemarks())
                 .createdBy(r.getCreatedBy()).createdDate(r.getCreatedDate())
-                .updatedBy(r.getUpdatedBy()).updatedDate(r.getUpdatedDate()).build();
+                .updatedBy(r.getUpdatedBy()).updatedDate(r.getUpdatedDate())
+                .lockedForPayroll(r.getLockedForPayroll()).lockedByPayrollRunId(r.getLockedByPayrollRunId()).build();
     }
 }

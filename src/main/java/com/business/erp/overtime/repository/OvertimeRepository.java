@@ -19,6 +19,16 @@ public interface OvertimeRepository extends JpaRepository<OvertimeRequest, Long>
     Integer sumApprovedMinutesByEmployeeAndMonth(@Param("empId") Long empId,
                                                  @Param("from") LocalDate from, @Param("to") LocalDate to);
 
+    @Query("SELECT o FROM OvertimeRequest o WHERE o.employee.id = :empId AND o.overtimeDate BETWEEN :from AND :to " +
+            "AND o.status IN ('APPROVED','MODIFIED')")
+    java.util.List<OvertimeRequest> findApprovedInRange(@Param("empId") Long empId,
+                                                        @Param("from") LocalDate from, @Param("to") LocalDate to);
+
+    @Query("SELECT o FROM OvertimeRequest o WHERE o.employee.id = :empId AND o.overtimeDate BETWEEN :from AND :to " +
+            "AND o.status = 'PENDING'")
+    java.util.List<OvertimeRequest> findPendingInRange(@Param("empId") Long empId,
+                                                       @Param("from") LocalDate from, @Param("to") LocalDate to);
+
     @Query("SELECT o FROM OvertimeRequest o WHERE (:empId IS NULL OR o.employee.id = :empId) AND " +
             "(:status IS NULL OR o.status = :status) ORDER BY o.overtimeDate DESC")
     Page<OvertimeRequest> search(@Param("empId") Long empId,
