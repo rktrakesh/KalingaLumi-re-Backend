@@ -12,11 +12,14 @@ public interface PayrollDetailRepository extends JpaRepository<PayrollDetail, Lo
 
     Optional<PayrollDetail> findByPayrollRunIdAndEmployeeId(Long runId, Long empId);
 
-    Optional<PayrollDetail> findByPayrollRun_YearAndPayrollRun_MonthAndEmployeeId(int year, int month, Long empId);
+    Optional<PayrollDetail> findByPayrollRun_YearAndPayrollRun_MonthAndPayrollRun_IsCurrentVersionTrueAndEmployeeId(
+            int year, int month, Long empId);
 
     void deleteByPayrollRunId(Long runId);
 
     List<PayrollDetail> findByPayrollRunIdAndPaymentStatus(Long runId, PayrollDetail.PaymentStatus paymentStatus);
 
     long countByPayrollRunIdAndPaymentStatus(Long runId, PayrollDetail.PaymentStatus paymentStatus);
+
+    long countByPayrollRunId(Long runId);
 }

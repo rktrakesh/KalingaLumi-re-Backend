@@ -31,5 +31,21 @@ public class Holiday extends AuditableEntity {
     @JdbcTypeCode(SqlTypes.VARCHAR)
     private HolidayType holidayType;
 
-    public enum HolidayType {FACTORY_HOLIDAY, NATIONAL_HOLIDAY}
+    /**
+     * Whether attendance is allowed on this holiday.
+     * - FACTORY_HOLIDAY: always effectively "not allowed" from a payroll standpoint (normal salary, no OT),
+     *   this flag is not consulted for FACTORY_HOLIDAY.
+     * - NATIONAL_HOLIDAY / STATE_HOLIDAY: if true, employees may check in and will earn Holiday OT pay;
+     *   if false, attendance is blocked and normal salary is paid.
+     * Defaults to false (blocked) to preserve prior behaviour for existing rows.
+     */
+    @Column(name = "work_allowed", nullable = false)
+    @Builder.Default
+    private Boolean workAllowed = false;
+
+    /** Only relevant when holidayType = STATE_HOLIDAY. Free-text state/region name. */
+    @Column(name = "applicable_state", length = 100)
+    private String applicableState;
+
+    public enum HolidayType {FACTORY_HOLIDAY, NATIONAL_HOLIDAY, STATE_HOLIDAY}
 }

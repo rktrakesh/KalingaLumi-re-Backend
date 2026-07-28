@@ -38,6 +38,10 @@ public class LeaveBalance {
     @Column(nullable = false)
     private Integer balance;
 
+    @Column(name = "carried_forward_in", nullable = false)
+    @Builder.Default
+    private Integer carriedForwardIn = 0;
+
     public void useLeave() {
         if (balance <= 0) throw new IllegalStateException("No leave balance available");
         used++;

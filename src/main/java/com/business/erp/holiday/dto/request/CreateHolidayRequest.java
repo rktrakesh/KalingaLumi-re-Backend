@@ -17,4 +17,7 @@ public class CreateHolidayRequest {
     private String name;
     @NotNull
     private Holiday.HolidayType holidayType;
+    private boolean workAllowed = false;
+    @Size(max = 100)
+    private String applicableState;
 }

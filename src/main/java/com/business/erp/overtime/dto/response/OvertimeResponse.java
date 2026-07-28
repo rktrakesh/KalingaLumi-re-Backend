@@ -22,4 +22,7 @@ public class OvertimeResponse {
     private LocalDateTime approvedDate;
     private String remarks;
     private LocalDateTime createdDate;
+    private String reopenedBy;
+    private LocalDateTime reopenedDate;
+    private String reopenReason;
 }

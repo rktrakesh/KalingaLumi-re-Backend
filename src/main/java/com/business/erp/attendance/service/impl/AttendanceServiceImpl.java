@@ -8,6 +8,8 @@ import com.business.erp.attendance.entity.AttendanceRecord;
 import com.business.erp.attendance.repository.AttendanceRepository;
 import com.business.erp.attendance.service.AttendanceService;
 import com.business.erp.common.audit.AuditService;
+import com.business.erp.common.exception.AttendanceLockedByOvertimeException;
+import com.business.erp.common.exception.AttendanceLockedException;
 import com.business.erp.common.exception.BusinessException;
 import com.business.erp.common.exception.MonthClosedException;
 import com.business.erp.common.exception.ResourceNotFoundException;
@@ -16,6 +18,7 @@ import com.business.erp.employee.entity.Employee;
 import com.business.erp.employee.service.EmployeeService;
 import com.business.erp.monthclosing.service.MonthClosingService;
 import com.business.erp.notification.service.NotificationService;
+import com.business.erp.overtime.dto.response.OvertimeResponse;
 import com.business.erp.overtime.service.OvertimeService;
 import com.business.erp.settings.enums.SettingKey;
 import com.business.erp.settings.service.SettingsService;
@@ -65,6 +68,8 @@ public class AttendanceServiceImpl implements AttendanceService {
     public AttendanceResponse checkOut(Long attendanceId, CheckOutRequest req) {
         log.info("AttendanceServiceImpl:checkOut :: attendanceId={}", attendanceId);
         AttendanceRecord record = getRecord(attendanceId);
+        if (Boolean.TRUE.equals(record.getLockedForPayroll()))
+            throw new AttendanceLockedException(record.getAttendanceDate());
         if (record.getCheckIn() == null) throw new BusinessException("Cannot check out without check-in");
         if (record.getCheckOut() != null) throw new BusinessException("Already checked out");
         record.setCheckOut(req.getCheckOut());
@@ -89,12 +94,26 @@ public class AttendanceServiceImpl implements AttendanceService {
     public AttendanceResponse correct(Long id, CorrectAttendanceRequest req, String updatedBy) {
         log.info("AttendanceServiceImpl:correct :: id={} by={}", id, updatedBy);
         AttendanceRecord record = getRecord(id);
+        if (Boolean.TRUE.equals(record.getLockedForPayroll()))
+            throw new AttendanceLockedException(record.getAttendanceDate());
         if (monthClosingService.isMonthClosed(record.getAttendanceDate().getYear(),
                 record.getAttendanceDate().getMonthValue()))
             throw new MonthClosedException(record.getAttendanceDate().getYear(),
                     record.getAttendanceDate().getMonthValue());
         if (record.getAttendanceDate().isBefore(LocalDate.now().minusDays(7)))
             throw new BusinessException("Attendance older than 7 days cannot be edited");
+
+        // Attendance Edited -> Was OT Approved? -> YES -> Block Editing. An admin must explicitly
+        // reopen the approved/modified overtime request first (OvertimeService.reopen) before this
+        // attendance record becomes editable again — editing underneath an approved OT figure would
+        // otherwise silently invalidate an approval nobody reviewed the correction against.
+        java.util.Optional<OvertimeResponse> activeOt = overtimeService.findActiveExcessHoursRequest(id);
+        boolean otIsApprovedLike = activeOt.isPresent()
+                && ("APPROVED".equals(activeOt.get().getStatus()) || "MODIFIED".equals(activeOt.get().getStatus()));
+        if (otIsApprovedLike) {
+            throw new AttendanceLockedByOvertimeException(activeOt.get().getId());
+        }
+
         Object oldVal = toResponse(record);
         if (req.getCheckIn() != null) record.setCheckIn(req.getCheckIn());
         if (req.getCheckOut() != null) {
@@ -105,10 +124,25 @@ public class AttendanceServiceImpl implements AttendanceService {
                 record.setWorkedMinutes(worked);
             }
         }
-        if (req.getStatus() != null) record.setStatus(req.getStatus());
+        if (req.getStatus() != null) {
+            record.setStatus(req.getStatus());
+        } else if (req.getCheckOut() != null && record.getCheckIn() != null
+                && record.getStatus() == AttendanceRecord.AttendanceStatus.PENDING_CHECKOUT) {
+            record.setStatus(AttendanceRecord.AttendanceStatus.PRESENT);
+        }
         record.setRemarks(req.getRemarks());
         AttendanceRecord saved = attendanceRepository.save(record);
         auditService.log("ATTENDANCE", "CORRECT", "AttendanceRecord", id, oldVal, toResponse(saved));
+
+        if (saved.getWorkedMinutes() != null && saved.getWorkedMinutes() > 0 && activeOt.isEmpty()) {
+            int stdMins = settingsService.getIntValue(SettingKey.STANDARD_WORKING_HOURS) * 60;
+            if (saved.getWorkedMinutes() > stdMins) {
+                log.info("AttendanceServiceImpl:correct :: Overtime recalculated on correction empId={} date={} extra={}min",
+                        saved.getEmployee().getId(), saved.getAttendanceDate(), saved.getWorkedMinutes() - stdMins);
+                overtimeService.createOvertimeRequest(saved, saved.getWorkedMinutes() - stdMins);
+            }
+        }
+
         log.info("AttendanceServiceImpl:correct :: SUCCESS id={}", id);
         return toResponse(saved);
     }
@@ -154,6 +188,21 @@ public class AttendanceServiceImpl implements AttendanceService {
         log.info("AttendanceServiceImpl:markPendingCheckouts :: Marked {} records as PENDING_CHECKOUT", missed.size());
     }
 
+    @Override
+    @Transactional
+    public void lockForPayroll(LocalDate from, LocalDate to, Long payrollRunId) {
+        int locked = attendanceRepository.lockRange(from, to, payrollRunId);
+        log.info("AttendanceServiceImpl:lockForPayroll :: from={} to={} runId={} recordsLocked={}",
+                from, to, payrollRunId, locked);
+    }
+
+    @Override
+    @Transactional
+    public void unlockForPayroll(Long payrollRunId) {
+        int unlocked = attendanceRepository.unlockByRunId(payrollRunId);
+        log.info("AttendanceServiceImpl:unlockForPayroll :: runId={} recordsUnlocked={}", payrollRunId, unlocked);
+    }
+
     private AttendanceRecord getRecord(Long id) {
         return attendanceRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("AttendanceRecord", id));
@@ -166,6 +215,7 @@ public class AttendanceServiceImpl implements AttendanceService {
                 .attendanceDate(r.getAttendanceDate()).checkIn(r.getCheckIn()).checkOut(r.getCheckOut())
                 .workedMinutes(r.getWorkedMinutes()).status(r.getStatus().name()).remarks(r.getRemarks())
                 .createdBy(r.getCreatedBy()).createdDate(r.getCreatedDate())
-                .updatedBy(r.getUpdatedBy()).updatedDate(r.getUpdatedDate()).build();
+                .updatedBy(r.getUpdatedBy()).updatedDate(r.getUpdatedDate())
+                .lockedForPayroll(r.getLockedForPayroll()).lockedByPayrollRunId(r.getLockedByPayrollRunId()).build();
     }
 }

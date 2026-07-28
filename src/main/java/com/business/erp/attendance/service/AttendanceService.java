@@ -26,4 +26,10 @@ public interface AttendanceService {
     List<AttendanceResponse> getPendingCheckouts();
 
     void markPendingCheckouts();
+
+    /** Locks every attendance record in [from, to] against edits, tagging it with the payroll run that locked it. */
+    void lockForPayroll(LocalDate from, LocalDate to, Long payrollRunId);
+
+    /** Releases the payroll lock previously applied by the given run (used when a payroll run is reopened). */
+    void unlockForPayroll(Long payrollRunId);
 }

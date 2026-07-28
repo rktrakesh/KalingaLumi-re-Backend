@@ -5,7 +5,6 @@ import com.business.erp.common.audit.AuditableEntity;
 import com.business.erp.employee.entity.Employee;
 import jakarta.persistence.*;
 import lombok.*;
-import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -61,6 +60,13 @@ public class OvertimeRequest extends AuditableEntity {
 
     @Column(columnDefinition = "TEXT")
     private String remarks;
+
+    @Column(name = "reopened_by", length = 50)
+    private String reopenedBy;
+    @Column(name = "reopened_date")
+    private LocalDateTime reopenedDate;
+    @Column(name = "reopen_reason", columnDefinition = "TEXT")
+    private String reopenReason;
 
     public enum OvertimeType {EXCESS_HOURS, LEAVE_CONVERSION}
 

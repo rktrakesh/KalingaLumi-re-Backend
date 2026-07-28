@@ -8,6 +8,7 @@ import com.business.erp.employee.service.EmployeeService;
 import com.business.erp.notification.service.NotificationService;
 import com.business.erp.overtime.dto.request.ApproveOvertimeRequest;
 import com.business.erp.overtime.dto.request.ConvertLeaveToOTRequest;
+import com.business.erp.overtime.dto.request.ReopenOvertimeRequest;
 import com.business.erp.overtime.dto.response.OvertimeResponse;
 import com.business.erp.overtime.entity.OvertimeRequest;
 import com.business.erp.overtime.repository.OvertimeRepository;
@@ -48,6 +49,29 @@ public class OvertimeServiceImpl implements OvertimeService {
                 .requestedMinutes(overtimeMinutes).status(OvertimeRequest.OvertimeStatus.PENDING).build());
         notificationService.createOvertimeApprovalNotification(attendance.getEmployee(), ot.getId());
         log.info("OvertimeServiceImpl:createOvertimeRequest :: SUCCESS otId={}", ot.getId());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public java.util.Optional<OvertimeResponse> findActiveExcessHoursRequest(Long attendanceId) {
+        return overtimeRepository.findActiveExcessHoursRequest(attendanceId).map(this::toResponse);
+    }
+
+    @Override
+    @Transactional
+    public OvertimeResponse reopen(Long id, ReopenOvertimeRequest req, String reopenedBy) {
+        log.info("OvertimeServiceImpl:reopen :: id={} by={} reason={}", id, reopenedBy, req.getReason());
+        OvertimeRequest ot = getOT(id);
+        if (ot.getStatus() != OvertimeRequest.OvertimeStatus.APPROVED && ot.getStatus() != OvertimeRequest.OvertimeStatus.MODIFIED)
+            throw new BusinessException("Only APPROVED or MODIFIED overtime requests can be reopened (current status: " + ot.getStatus() + ")");
+
+        ot.setStatus(OvertimeRequest.OvertimeStatus.REJECTED);
+        ot.setReopenedBy(reopenedBy);
+        ot.setReopenedDate(LocalDateTime.now());
+        ot.setReopenReason(req.getReason());
+        OvertimeResponse response = toResponse(overtimeRepository.save(ot));
+        log.info("OvertimeServiceImpl:reopen :: SUCCESS id={} — attendance for {} is now editable again", id, ot.getOvertimeDate());
+        return response;
     }
 
     @Override
@@ -117,6 +141,16 @@ public class OvertimeServiceImpl implements OvertimeService {
         return mins != null ? mins : 0;
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public java.util.Map<LocalDate, Integer> getApprovedMinutesByDate(Long empId, LocalDate from, LocalDate to) {
+        return overtimeRepository.findApprovedInRange(empId, from, to).stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        OvertimeRequest::getOvertimeDate,
+                        o -> o.getApprovedMinutes() != null ? o.getApprovedMinutes() : 0,
+                        Integer::sum));
+    }
+
     private OvertimeRequest getOT(Long id) {
         return overtimeRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("OvertimeRequest", id));
@@ -130,6 +164,8 @@ public class OvertimeServiceImpl implements OvertimeService {
                 .requestedMinutes(o.getRequestedMinutes()).approvedMinutes(o.getApprovedMinutes())
                 .status(o.getStatus().name()).approvedBy(o.getApprovedBy())
                 .approvedDate(o.getApprovedDate()).remarks(o.getRemarks())
-                .createdDate(o.getCreatedDate()).build();
+                .createdDate(o.getCreatedDate())
+                .reopenedBy(o.getReopenedBy()).reopenedDate(o.getReopenedDate()).reopenReason(o.getReopenReason())
+                .build();
     }
 }

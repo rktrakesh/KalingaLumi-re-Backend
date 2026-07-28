@@ -1,10 +1,8 @@
 package com.business.erp.payroll.controller;
 
 import com.business.erp.common.response.ApiResponse;
-import com.business.erp.payroll.dto.request.DisbursePaymentRequest;
-import com.business.erp.payroll.dto.request.GeneratePayrollRequest;
-import com.business.erp.payroll.dto.response.PayrollDetailResponse;
-import com.business.erp.payroll.dto.response.PayrollRunResponse;
+import com.business.erp.payroll.dto.request.*;
+import com.business.erp.payroll.dto.response.*;
 import com.business.erp.payroll.service.PayrollService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -25,15 +23,16 @@ import java.util.List;
 @RequestMapping("/api/v1/payroll")
 @RequiredArgsConstructor
 @SecurityRequirement(name = "bearerAuth")
-@Tag(name = "Payroll", description = "Payroll generation, salary disbursement and payslip management")
+@Tag(name = "Payroll", description = "Payroll lifecycle, calculation engine, disbursement and payslip management")
 public class PayrollController {
 
     private final PayrollService payrollService;
     private final Logger log = LoggerFactory.getLogger(PayrollController.class);
 
+    // ── Lifecycle ────────────────────────────────────────────────────────
     @PostMapping("/generate")
     @PreAuthorize("hasRole('ROLE_ADMIN')")
-    @Operation(summary = "Generate payroll", description = "Calculate salaries for all active employees for the given month")
+    @Operation(summary = "Generate payroll", description = "First-time calculation for a period. Captures the immutable settings snapshot.")
     public ResponseEntity<ApiResponse<PayrollRunResponse>> generate(
             @Valid @RequestBody GeneratePayrollRequest req,
             @AuthenticationPrincipal UserDetails user) {
@@ -42,62 +41,90 @@ public class PayrollController {
                 payrollService.generate(req, user.getUsername()), "Payroll generated successfully"));
     }
 
-    @PostMapping("/regenerate/{runId}")
+    @PostMapping("/{runId}/recalculate")
     @PreAuthorize("hasRole('ROLE_ADMIN')")
-    @Operation(summary = "Regenerate payroll", description = "Recalculate payroll for a run. Blocked if any salary is already PAID.")
-    public ResponseEntity<ApiResponse<PayrollRunResponse>> regenerate(
-            @PathVariable Long runId,
-            @AuthenticationPrincipal UserDetails user) {
-        log.info("PayrollController:regenerate :: runId={} by={}", runId, user.getUsername());
+    @Operation(summary = "Recalculate payroll", description = "Creates a new calculation version for a run that is not yet VERIFIED. Never overwrites the previous version.")
+    public ResponseEntity<ApiResponse<PayrollRunResponse>> recalculate(
+            @PathVariable Long runId, @AuthenticationPrincipal UserDetails user) {
+        log.info("PayrollController:recalculate :: runId={} by={}", runId, user.getUsername());
         return ResponseEntity.ok(ApiResponse.ok(
-                payrollService.regenerate(runId, user.getUsername()), "Payroll regenerated"));
+                payrollService.recalculate(runId, user.getUsername()), "Payroll recalculated as a new version"));
     }
 
+    @PostMapping("/{runId}/verify")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @Operation(summary = "Verify payroll", description = "Confirms the calculated numbers are correct. CALCULATED -> VERIFIED.")
+    public ResponseEntity<ApiResponse<PayrollRunResponse>> verify(
+            @PathVariable Long runId, @RequestBody(required = false) ActionRemarksRequest req,
+            @AuthenticationPrincipal UserDetails user) {
+        log.info("PayrollController:verify :: runId={} by={}", runId, user.getUsername());
+        String remarks = req != null ? req.getRemarks() : null;
+        return ResponseEntity.ok(ApiResponse.ok(
+                payrollService.verify(runId, user.getUsername(), remarks), "Payroll verified"));
+    }
+
+    @PostMapping("/{runId}/approve")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @Operation(summary = "Approve payroll", description = "Approves for disbursement. VERIFIED -> APPROVED. Freezes attendance for the period.")
+    public ResponseEntity<ApiResponse<PayrollRunResponse>> approve(
+            @PathVariable Long runId, @RequestBody(required = false) ActionRemarksRequest req,
+            @AuthenticationPrincipal UserDetails user) {
+        log.info("PayrollController:approve :: runId={} by={}", runId, user.getUsername());
+        String remarks = req != null ? req.getRemarks() : null;
+        return ResponseEntity.ok(ApiResponse.ok(
+                payrollService.approve(runId, user.getUsername(), remarks), "Payroll approved and attendance locked"));
+    }
+
+    @PostMapping("/{runId}/reopen")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @Operation(summary = "Reopen payroll", description = "Reopens a VERIFIED/APPROVED/PROCESSED run: unlocks attendance, reverses leave settlement, creates a new version.")
+    public ResponseEntity<ApiResponse<PayrollRunResponse>> reopen(
+            @PathVariable Long runId, @Valid @RequestBody ReopenPayrollRequest req,
+            @AuthenticationPrincipal UserDetails user) {
+        log.info("PayrollController:reopen :: runId={} by={} reason={}", runId, user.getUsername(), req.getReason());
+        return ResponseEntity.ok(ApiResponse.ok(
+                payrollService.reopen(runId, user.getUsername(), req.getReason()),
+                "Payroll reopened — attendance unlocked, new version created"));
+    }
+
+    @PostMapping("/{runId}/lock")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @Operation(summary = "Lock payroll run", description = "Permanently locks a fully PAID run.")
+    public ResponseEntity<ApiResponse<PayrollRunResponse>> lock(
+            @PathVariable Long runId, @AuthenticationPrincipal UserDetails user) {
+        log.info("PayrollController:lock :: runId={} by={}", runId, user.getUsername());
+        return ResponseEntity.ok(ApiResponse.ok(
+                payrollService.lockRun(runId, user.getUsername()), "Payroll run locked successfully"));
+    }
+
+    // ── Disbursement ─────────────────────────────────────────────────────
     @PostMapping("/details/{detailId}/disburse")
     @PreAuthorize("hasRole('ROLE_ADMIN')")
-    @Operation(summary = "Disburse salary — single employee",
-            description = "Mark one employee's salary as PAID and auto-post cashbook debit entry")
+    @Operation(summary = "Disburse salary — single employee")
     public ResponseEntity<ApiResponse<PayrollDetailResponse>> disburseOne(
-            @PathVariable Long detailId,
-            @Valid @RequestBody DisbursePaymentRequest req,
+            @PathVariable Long detailId, @Valid @RequestBody DisbursePaymentRequest req,
             @AuthenticationPrincipal UserDetails user) {
         log.info("PayrollController:disburseOne :: detailId={} mode={} by={}", detailId, req.getPaymentMode(), user.getUsername());
         return ResponseEntity.ok(ApiResponse.ok(
-                payrollService.disburseOne(detailId, req, user.getUsername()),
-                "Salary disbursed successfully"));
+                payrollService.disburseOne(detailId, req, user.getUsername()), "Salary disbursed successfully"));
     }
 
     @PostMapping("/{runId}/disburse-all")
     @PreAuthorize("hasRole('ROLE_ADMIN')")
-    @Operation(summary = "Disburse all salaries",
-            description = "Pay all PENDING employees in this payroll run in one action")
+    @Operation(summary = "Disburse all salaries")
     public ResponseEntity<ApiResponse<Void>> disburseAll(
-            @PathVariable Long runId,
-            @Valid @RequestBody DisbursePaymentRequest req,
+            @PathVariable Long runId, @Valid @RequestBody DisbursePaymentRequest req,
             @AuthenticationPrincipal UserDetails user) {
         log.info("PayrollController:disburseAll :: runId={} mode={} by={}", runId, req.getPaymentMode(), user.getUsername());
         payrollService.disburseAll(runId, req, user.getUsername());
         return ResponseEntity.ok(ApiResponse.ok("All pending salaries disbursed successfully"));
     }
 
-    @PostMapping("/{runId}/lock")
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
-    @Operation(summary = "Lock payroll run",
-            description = "Lock a fully-paid payroll run to prevent any further modifications")
-    public ResponseEntity<ApiResponse<PayrollRunResponse>> lock(
-            @PathVariable Long runId,
-            @AuthenticationPrincipal UserDetails user) {
-        log.info("PayrollController:lock :: runId={} by={}", runId, user.getUsername());
-        return ResponseEntity.ok(ApiResponse.ok(
-                payrollService.lockRun(runId, user.getUsername()),
-                "Payroll run locked successfully"));
-    }
-
+    // ── Reads ────────────────────────────────────────────────────────────
     @GetMapping
     @PreAuthorize("hasRole('ROLE_ADMIN')")
-    @Operation(summary = "List all payroll runs", description = "Returns all runs ordered latest first")
+    @Operation(summary = "List current payroll runs", description = "Latest version of every period, newest first")
     public ResponseEntity<ApiResponse<List<PayrollRunResponse>>> getAll() {
-        log.debug("PayrollController:getAll :: fetching all runs");
         return ResponseEntity.ok(ApiResponse.ok(payrollService.getAllRuns()));
     }
 
@@ -105,26 +132,58 @@ public class PayrollController {
     @PreAuthorize("hasRole('ROLE_ADMIN')")
     @Operation(summary = "Get payroll run by ID")
     public ResponseEntity<ApiResponse<PayrollRunResponse>> getRun(@PathVariable Long runId) {
-        log.debug("PayrollController:getRun :: runId={}", runId);
         return ResponseEntity.ok(ApiResponse.ok(payrollService.getRun(runId)));
+    }
+
+    @GetMapping("/history")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @Operation(summary = "Version history for a period", description = "Every calculation version ever generated, oldest first")
+    public ResponseEntity<ApiResponse<List<PayrollRunResponse>>> getVersionHistory(
+            @RequestParam int year, @RequestParam int month) {
+        return ResponseEntity.ok(ApiResponse.ok(payrollService.getVersionHistory(year, month)));
     }
 
     @GetMapping("/{runId}/details")
     @PreAuthorize("hasRole('ROLE_ADMIN')")
     @Operation(summary = "Get payroll details", description = "All employee payslips for a payroll run")
     public ResponseEntity<ApiResponse<List<PayrollDetailResponse>>> getDetails(@PathVariable Long runId) {
-        log.debug("PayrollController:getDetails :: runId={}", runId);
         return ResponseEntity.ok(ApiResponse.ok(payrollService.getDetails(runId)));
     }
 
     @GetMapping("/employee/{empId}")
     @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_EMPLOYEE')")
-    @Operation(summary = "Get employee payslip", description = "Fetch individual payslip for a specific month")
+    @Operation(summary = "Get employee payslip", description = "Fetch individual payslip for a specific month (current version)")
     public ResponseEntity<ApiResponse<PayrollDetailResponse>> getPayslip(
-            @PathVariable Long empId,
-            @RequestParam int year,
-            @RequestParam int month) {
-        log.debug("PayrollController:getPayslip :: empId={} {}/{}", empId, year, month);
+            @PathVariable Long empId, @RequestParam int year, @RequestParam int month) {
         return ResponseEntity.ok(ApiResponse.ok(payrollService.getEmployeePayslip(empId, year, month)));
+    }
+
+    @GetMapping("/{runId}/calculation-logs")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @Operation(summary = "Calculation logs for a run", description = "Full per-employee calculation trail for dispute resolution")
+    public ResponseEntity<ApiResponse<List<PayrollCalculationLogResponse>>> getCalculationLogs(@PathVariable Long runId) {
+        return ResponseEntity.ok(ApiResponse.ok(payrollService.getCalculationLogs(runId)));
+    }
+
+    @GetMapping("/employee/{empId}/calculation-history")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_EMPLOYEE')")
+    @Operation(summary = "Employee calculation history", description = "Every calculation ever run for this employee, across all periods and versions")
+    public ResponseEntity<ApiResponse<List<PayrollCalculationLogResponse>>> getEmployeeCalculationHistory(@PathVariable Long empId) {
+        return ResponseEntity.ok(ApiResponse.ok(payrollService.getEmployeeCalculationHistory(empId)));
+    }
+
+    @GetMapping("/{runId}/dashboard")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @Operation(summary = "Payroll dashboard summary", description = "Totals by pay component for a run")
+    public ResponseEntity<ApiResponse<PayrollDashboardResponse>> getDashboard(@PathVariable Long runId) {
+        return ResponseEntity.ok(ApiResponse.ok(payrollService.getDashboard(runId)));
+    }
+
+    @GetMapping("/exceptions")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @Operation(summary = "Payroll exception report", description = "Attendance/OT/leave/holiday anomalies for a period, before approval")
+    public ResponseEntity<ApiResponse<List<PayrollExceptionResponse>>> getExceptionReport(
+            @RequestParam int year, @RequestParam int month) {
+        return ResponseEntity.ok(ApiResponse.ok(payrollService.getExceptionReport(year, month)));
     }
 }

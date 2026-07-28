@@ -65,7 +65,7 @@ public class ReportServiceImpl implements ReportService {
 
     public PayrollReportResponse payrollReport(int year, int month) {
         log.debug("ReportServiceImpl:payrollReport :: invoked");
-        var run = payrollRunRepository.findByYearAndMonth(year, month)
+        var run = payrollRunRepository.findByYearAndMonthAndIsCurrentVersionTrue(year, month)
                 .orElseThrow(() -> new BusinessException("Payroll not generated for " + year + "-" + month));
         var details = payrollDetailRepository.findByPayrollRunId(run.getId());
 

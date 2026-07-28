@@ -10,6 +10,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 import java.util.List;
+import java.util.Map;
 
 public interface EmployeeService {
     EmployeeResponse create(CreateEmployeeRequest request, String createdBy);
@@ -29,4 +30,7 @@ public interface EmployeeService {
     Employee getEmployee(Long id);
 
     List<Employee> getActiveEmployees();
+
+    /** Batch lookup by ID, keyed by employee ID — avoids N+1 single-row queries in callers like payroll reporting. */
+    Map<Long, Employee> getEmployeesByIds(List<Long> ids);
 }
