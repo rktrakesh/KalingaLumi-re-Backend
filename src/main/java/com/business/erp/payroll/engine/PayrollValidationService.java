@@ -8,12 +8,6 @@ import org.springframework.stereotype.Component;
 @Component
 public class PayrollValidationService {
 
-    public void validateGenerate(boolean alreadyExistsForPeriod) {
-        if (alreadyExistsForPeriod)
-            throw new InvalidPayrollStateException(
-                    "Payroll for this period already exists. Use recalculate instead of generating twice.");
-    }
-
     public void validateRecalculate(PayrollRun current) {
         requireStatus(current, "Recalculate", PayrollStatus.DRAFT, PayrollStatus.CALCULATED);
     }
@@ -53,15 +47,6 @@ public class PayrollValidationService {
         if (run.getStatus() == PayrollStatus.DRAFT || run.getStatus() == PayrollStatus.CALCULATED)
             throw new InvalidPayrollStateException(
                     "Payroll is still in " + run.getStatus() + " — just recalculate directly, no need to reopen.");
-    }
-
-    public void validateAttendanceEditableForReopen(PayrollRun run) {
-        // Reopen is what UNLOCKS attendance again — this is a no-op guard kept for symmetry /
-        // future extension (e.g. requiring a second authorization step for PROCESSED reopens).
-        if (run.getStatus() == PayrollStatus.PROCESSED) {
-            // Reopening after disbursement has started is higher-risk — still allowed, but the
-            // caller (service layer) is expected to require an explicit authorization flag.
-        }
     }
 
     private void requireStatus(PayrollRun run, String action, PayrollStatus... allowed) {

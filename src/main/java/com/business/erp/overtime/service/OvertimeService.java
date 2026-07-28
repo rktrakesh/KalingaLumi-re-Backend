@@ -4,6 +4,7 @@ import com.business.erp.attendance.entity.AttendanceRecord;
 import com.business.erp.common.response.PageResponse;
 import com.business.erp.overtime.dto.request.ApproveOvertimeRequest;
 import com.business.erp.overtime.dto.request.ConvertLeaveToOTRequest;
+import com.business.erp.overtime.dto.request.ReopenOvertimeRequest;
 import com.business.erp.overtime.dto.response.OvertimeResponse;
 import com.business.erp.overtime.entity.OvertimeRequest;
 import org.springframework.data.domain.Pageable;
@@ -13,6 +14,10 @@ import java.util.List;
 
 public interface OvertimeService {
     void createOvertimeRequest(AttendanceRecord attendance, int overtimeMinutes);
+
+    java.util.Optional<OvertimeResponse> findActiveExcessHoursRequest(Long attendanceId);
+
+    OvertimeResponse reopen(Long id, ReopenOvertimeRequest request, String reopenedBy);
 
     OvertimeResponse approve(Long id, ApproveOvertimeRequest request, String approvedBy);
 

@@ -50,9 +50,21 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.LOCKED).body(ApiResponse.error(ex.getMessage()));
     }
 
+    @ExceptionHandler(AttendanceLockedByOvertimeException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAttendanceLockedByOvertime(AttendanceLockedByOvertimeException ex) {
+        log.warn("GlobalExceptionHandler:handleAttendanceLockedByOvertime :: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.LOCKED).body(ApiResponse.error(ex.getMessage()));
+    }
+
     @ExceptionHandler(InvalidPayrollStateException.class)
     public ResponseEntity<ApiResponse<Void>> handleInvalidPayrollState(InvalidPayrollStateException ex) {
         log.warn("GlobalExceptionHandler:handleInvalidPayrollState :: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.error(ex.getMessage()));
+    }
+
+    @ExceptionHandler(PayrollGenerationNotAllowedException.class)
+    public ResponseEntity<ApiResponse<Void>> handlePayrollGenerationNotAllowed(PayrollGenerationNotAllowedException ex) {
+        log.warn("GlobalExceptionHandler:handlePayrollGenerationNotAllowed :: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.error(ex.getMessage()));
     }
 

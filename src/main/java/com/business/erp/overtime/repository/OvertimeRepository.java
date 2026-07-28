@@ -33,4 +33,8 @@ public interface OvertimeRepository extends JpaRepository<OvertimeRequest, Long>
             "(:status IS NULL OR o.status = :status) ORDER BY o.overtimeDate DESC")
     Page<OvertimeRequest> search(@Param("empId") Long empId,
                                  @Param("status") OvertimeRequest.OvertimeStatus status, Pageable pageable);
+
+    @Query("SELECT o FROM OvertimeRequest o WHERE o.attendance.id = :attendanceId AND o.requestType = 'EXCESS_HOURS' " +
+            "AND o.status IN ('PENDING','APPROVED','MODIFIED')")
+    java.util.Optional<OvertimeRequest> findActiveExcessHoursRequest(@Param("attendanceId") Long attendanceId);
 }

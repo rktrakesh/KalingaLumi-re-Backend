@@ -4,6 +4,7 @@ import com.business.erp.common.response.ApiResponse;
 import com.business.erp.common.response.PageResponse;
 import com.business.erp.overtime.dto.request.ApproveOvertimeRequest;
 import com.business.erp.overtime.dto.request.ConvertLeaveToOTRequest;
+import com.business.erp.overtime.dto.request.ReopenOvertimeRequest;
 import com.business.erp.overtime.dto.response.OvertimeResponse;
 import com.business.erp.overtime.entity.OvertimeRequest;
 import com.business.erp.overtime.service.OvertimeService;
@@ -63,6 +64,17 @@ public class OvertimeController {
             @AuthenticationPrincipal UserDetails user) {
         log.info("OvertimeController:reject :: id={} by={}", id, user.getUsername());
         return ResponseEntity.ok(ApiResponse.ok(overtimeService.reject(id, remarks, user.getUsername()), "Overtime rejected"));
+    }
+
+    @PutMapping("/{id}/reopen")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @Operation(summary = "Reopen approved overtime", description = "Reopens an APPROVED/MODIFIED overtime request so the attendance underneath it can be corrected. Requires a reason.")
+    public ResponseEntity<ApiResponse<OvertimeResponse>> reopen(
+            @PathVariable Long id, @Valid @RequestBody ReopenOvertimeRequest req,
+            @AuthenticationPrincipal UserDetails user) {
+        log.info("OvertimeController:reopen :: id={} by={} reason={}", id, user.getUsername(), req.getReason());
+        return ResponseEntity.ok(ApiResponse.ok(overtimeService.reopen(id, req, user.getUsername()),
+                "Overtime request reopened — attendance can now be corrected"));
     }
 
     @PostMapping("/convert-leave")

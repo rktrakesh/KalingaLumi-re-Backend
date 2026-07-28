@@ -1,13 +1,16 @@
 package com.business.erp.payroll.engine;
 
 import com.business.erp.payroll.entity.PayrollSettingsSnapshot;
+import com.business.erp.payroll.engine.version.PayrollEngineVersion;
 import com.business.erp.payroll.repository.PayrollSettingsSnapshotRepository;
+import com.business.erp.settings.enums.PayrollGenerationPolicy;
 import com.business.erp.settings.enums.SettingKey;
 import com.business.erp.settings.service.SettingsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Component
@@ -18,7 +21,7 @@ public class PayrollSnapshotService {
     private final PayrollSettingsSnapshotRepository snapshotRepository;
 
     @Transactional
-    public PayrollSettingsSnapshot captureForRun(Long payrollRunId, String capturedBy) {
+    public PayrollSettingsSnapshot captureForRun(Long payrollRunId, String capturedBy, PayrollGenerationPolicy generationPolicy) {
         PayrollSettingsSnapshot snapshot = PayrollSettingsSnapshot.builder()
                 .payrollRunId(payrollRunId)
                 .standardWorkingDays(settingsService.getIntValue(SettingKey.STANDARD_WORKING_DAYS))
@@ -32,6 +35,8 @@ public class PayrollSnapshotService {
                 .unusedLeavePolicy(settingsService.getCurrentValue(SettingKey.UNUSED_PAID_LEAVE_POLICY))
                 .leaveCarryForwardLimit(settingsService.getIntValue(SettingKey.LEAVE_CARRY_FORWARD_LIMIT))
                 .leaveEncashmentEnabled(settingsService.getBooleanValue(SettingKey.LEAVE_ENCASHMENT_ENABLED))
+                .generationPolicy(generationPolicy.name())
+                .engineVersion(PayrollEngineVersion.CURRENT)
                 .capturedBy(capturedBy)
                 .capturedDate(LocalDateTime.now())
                 .build();

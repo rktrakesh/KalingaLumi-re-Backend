@@ -3,6 +3,7 @@ package com.business.erp.payroll.service.impl;
 import com.business.erp.attendance.service.AttendanceService;
 import com.business.erp.cashbook.service.CashbookService;
 import com.business.erp.common.audit.AuditService;
+import com.business.erp.common.clock.ClockProvider;
 import com.business.erp.common.exception.BusinessException;
 import com.business.erp.common.exception.InvalidPayrollStateException;
 import com.business.erp.common.exception.ResourceNotFoundException;
@@ -27,6 +28,11 @@ import com.business.erp.payroll.engine.PayrollPolicyService;
 import com.business.erp.payroll.engine.PayrollSnapshotService;
 import com.business.erp.payroll.engine.PayrollValidationService;
 import com.business.erp.payroll.engine.calendar.PayrollCalendar;
+import com.business.erp.payroll.engine.context.PayrollGenerationContext;
+import com.business.erp.payroll.engine.period.PayrollPeriod;
+import com.business.erp.payroll.engine.period.PayrollPeriodFactory;
+import com.business.erp.payroll.engine.validation.PayrollGenerationValidationPipeline;
+import com.business.erp.payroll.engine.version.PayrollEngineVersion;
 import com.business.erp.leave.dto.response.LeaveSettlementResult;
 import com.business.erp.payroll.entity.PayrollCalculationLog;
 import com.business.erp.payroll.entity.PayrollDetail;
@@ -37,6 +43,9 @@ import com.business.erp.payroll.repository.PayrollCalculationLogRepository;
 import com.business.erp.payroll.repository.PayrollDetailRepository;
 import com.business.erp.payroll.repository.PayrollRunRepository;
 import com.business.erp.payroll.service.PayrollService;
+import com.business.erp.settings.enums.PayrollGenerationPolicy;
+import com.business.erp.settings.enums.SettingKey;
+import com.business.erp.settings.service.SettingsService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,7 +56,6 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -75,6 +83,10 @@ public class PayrollServiceImpl implements PayrollService {
     private final PayrollSnapshotService snapshotService;
     private final PayrollValidationService validationService;
     private final PayrollExceptionReportService exceptionReportService;
+    private final PayrollPeriodFactory payrollPeriodFactory;
+    private final PayrollGenerationValidationPipeline validationPipeline;
+    private final ClockProvider clockProvider;
+    private final SettingsService settingsService;
     private final Logger log = LoggerFactory.getLogger(PayrollServiceImpl.class);
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -83,33 +95,50 @@ public class PayrollServiceImpl implements PayrollService {
     @Override
     @Transactional
     public PayrollRunResponse generate(GeneratePayrollRequest req, String generatedBy) {
-        log.info("PayrollServiceImpl:generate :: year={} month={} by={}", req.getYear(), req.getMonth(), generatedBy);
-        int year = req.getYear(), month = req.getMonth();
-        LocalDate periodStart = LocalDate.of(year, month, 1);
-        LocalDate periodEnd = YearMonth.of(year, month).atEndOfMonth();
+        long startedAt = System.currentTimeMillis();
+        log.info("PayrollServiceImpl:generate :: Payroll Generation Requested year={} month={} by={}",
+                req.getYear(), req.getMonth(), generatedBy);
 
-        if (LocalDate.now().isBefore(periodEnd))
-            throw new BusinessException("Cannot generate payroll before month ends on " + periodEnd);
+        PayrollPeriod period = payrollPeriodFactory.of(req.getMonth(), req.getYear());
+        log.debug("PayrollServiceImpl:generate :: Payroll Period Loaded period={}", period);
 
-        validationService.validateGenerate(payrollRunRepository.existsByYearAndMonthAndIsCurrentVersionTrue(year, month));
+        PayrollGenerationPolicy policy = PayrollGenerationPolicy.valueOf(
+                settingsService.getCurrentValue(SettingKey.PAYROLL_GENERATION_POLICY));
+        log.debug("PayrollServiceImpl:generate :: Payroll Policy Loaded policy={}", policy);
+        log.debug("PayrollServiceImpl:generate :: Current Date={}", clockProvider.today());
 
-        String ref = refService.generatePayrollReference(periodStart);
+        PayrollGenerationContext context = PayrollGenerationContext.builder()
+                .period(period)
+                .requestedBy(generatedBy)
+                .generationDate(LocalDateTime.now())
+                .generationPolicy(policy)
+                .engineVersion(PayrollEngineVersion.CURRENT)
+                .calculationVersion(1)
+                .build();
+
+        validationPipeline.validate(context); // throws + records blocked-audit if not allowed; nothing persisted yet
+        log.info("PayrollServiceImpl:generate :: Payroll Generation Allowed period={}", period);
+
+        String ref = refService.generatePayrollReference(period.getPeriodStart());
         PayrollRun run = payrollRunRepository.save(PayrollRun.builder()
-                .runReference(ref).year(year).month(month)
-                .periodStart(periodStart).periodEnd(periodEnd)
+                .runReference(ref).year(period.getYear()).month(period.getMonth())
+                .periodStart(period.getPeriodStart()).periodEnd(period.getPeriodEnd())
                 .status(PayrollStatus.DRAFT)
                 .calculationVersion(1).isCurrentVersion(true)
                 .generatedBy(generatedBy).generatedDate(LocalDateTime.now())
                 .remarks(req.getRemarks()).build());
 
-        PayrollSettingsSnapshot snapshot = snapshotService.captureForRun(run.getId(), generatedBy);
+        PayrollSettingsSnapshot snapshot = snapshotService.captureForRun(run.getId(), generatedBy, policy);
         run.setSnapshotId(snapshot.getId());
         payrollRunRepository.save(run);
+        log.debug("PayrollServiceImpl:generate :: Snapshot Loaded snapshotId={} engineVersion={}", snapshot.getId(), snapshot.getEngineVersion());
 
         ComputeOutcome outcome = computeAllDetails(run, snapshot, generatedBy);
         auditService.log("PAYROLL", "GENERATE", "PayrollRun", outcome.run().getId());
-        log.info("PayrollServiceImpl:generate :: SUCCESS runId={} ref={} employees={}",
-                outcome.run().getId(), ref, outcome.run().getTotalEmployees());
+
+        long durationMs = System.currentTimeMillis() - startedAt;
+        log.info("PayrollServiceImpl:generate :: SUCCESS runId={} ref={} employees={} durationMs={} engineVersion={}",
+                outcome.run().getId(), ref, outcome.run().getTotalEmployees(), durationMs, PayrollEngineVersion.CURRENT);
         return toRunResponse(outcome.run(), outcome.metrics(), outcome.exceptions());
     }
 

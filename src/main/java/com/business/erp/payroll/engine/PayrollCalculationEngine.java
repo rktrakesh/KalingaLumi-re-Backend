@@ -1,6 +1,7 @@
 package com.business.erp.payroll.engine;
 
 import com.business.erp.payroll.engine.calendar.PayrollCalendar;
+import com.business.erp.payroll.engine.version.PayrollEngineVersion;
 import com.business.erp.payroll.entity.PayrollSettingsSnapshot;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -49,9 +50,11 @@ public class PayrollCalculationEngine {
      * Stamped onto every {@link PayrollCalculationResult} (and persisted on
      * {@code PayrollCalculationLog}) so a future change to this engine's formulas can
      * never be silently mistaken for having applied to historical payroll — see item 4,
-     * Payroll Calculation Versioning. Bump this whenever the calculation logic changes.
+     * Payroll Calculation Versioning. Sourced from the single central version constant
+     * ({@link com.business.erp.payroll.engine.version.PayrollEngineVersion}) so the
+     * snapshot, the calculation log, and this engine can never drift out of sync.
      */
-    public static final String ENGINE_VERSION = "V1";
+    public static final String ENGINE_VERSION = PayrollEngineVersion.CURRENT;
 
     private final PayrollPolicyService policyService;
     private final CalculationBreakdownBuilder breakdownBuilder;

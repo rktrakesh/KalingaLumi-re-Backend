@@ -53,7 +53,10 @@ public class PayrollSettingsSnapshot {
     private Integer leaveCarryForwardLimit;
     @Column(name = "leave_encashment_enabled", nullable = false)
     private Boolean leaveEncashmentEnabled;
-
+    @Column(name = "generation_policy", length = 30)
+    private String generationPolicy;
+    @Column(name = "engine_version", length = 10)
+    private String engineVersion;
     @Column(name = "captured_by", nullable = false, length = 50)
     private String capturedBy;
     @Column(name = "captured_date", nullable = false)
