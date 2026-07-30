@@ -456,6 +456,10 @@ public class PayrollServiceImpl implements PayrollService {
 
         for (Employee emp : activeEmps) {
             try {
+                if (emp.getJoiningDate() != null && emp.getJoiningDate().isAfter(run.getPeriodEnd())) {
+                    throw new BusinessException("NOT_YET_JOINED: employee joins " + emp.getJoiningDate()
+                            + ", after this payroll period ends " + run.getPeriodEnd());
+                }
                 if (emp.getCurrentSalary() == null || emp.getCurrentSalary().compareTo(BigDecimal.ZERO) <= 0) {
                     throw new BusinessException("NO_SALARY: employee has no salary configured");
                 }
@@ -557,6 +561,7 @@ public class PayrollServiceImpl implements PayrollService {
     private String classifyFailure(Exception ex) {
         String msg = ex.getMessage() != null ? ex.getMessage() : "";
         if (msg.startsWith("NO_SALARY")) return "NO_SALARY";
+        if (msg.startsWith("NOT_YET_JOINED")) return "NOT_YET_JOINED";
         if (ex instanceof InvalidPayrollStateException) return "VALIDATION_FAILURE";
         return "UNKNOWN";
     }
