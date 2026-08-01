@@ -8,7 +8,10 @@ import com.business.erp.common.sequence.ReferenceNumberService;
 import com.business.erp.customer.entity.Customer;
 import com.business.erp.customer.entity.CustomerLedger;
 import com.business.erp.customer.service.CustomerService;
+import com.business.erp.employee.entity.Employee;
+import com.business.erp.employee.service.EmployeeService;
 import com.business.erp.inventory.service.InventoryService;
+import com.business.erp.performance.service.CustomerOwnershipService;
 import com.business.erp.sales.dto.request.CreateSaleRequest;
 import com.business.erp.sales.dto.request.SalePaymentRequest;
 import com.business.erp.sales.dto.request.SaleReturnRequest;
@@ -20,7 +23,6 @@ import com.business.erp.sales.entity.SalesReturn;
 import com.business.erp.sales.repository.SalesInvoiceRepository;
 import com.business.erp.sales.service.SalesService;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Pageable;
@@ -40,6 +42,8 @@ public class SalesServiceImpl implements SalesService {
     private final InventoryService inventoryService;
     private final CashbookService cashbookService;
     private final ReferenceNumberService refService;
+    private final EmployeeService employeeService;
+    private final CustomerOwnershipService customerOwnershipService;
     private final Logger log = LoggerFactory.getLogger(SalesServiceImpl.class);
 
     @Transactional
@@ -49,9 +53,14 @@ public class SalesServiceImpl implements SalesService {
         Customer customer = customerService.getCustomer(req.getCustomerId());
         LocalDate dueDate = req.getInvoiceDate().plusDays(customer.getCreditDays());
 
+        Employee soldBy = req.getSoldByEmployeeId() != null ? employeeService.getEmployee(req.getSoldByEmployeeId()) : null;
+        Employee creditedTo = customerOwnershipService.resolveOwnerAsOf(customer.getId(), req.getInvoiceDate())
+                .orElse(soldBy);
+
         SalesInvoice invoice = SalesInvoice.builder()
                 .invoiceReference(refService.generateSaleReference(req.getInvoiceDate()))
                 .customer(customer).invoiceDate(req.getInvoiceDate()).dueDate(dueDate)
+                .soldBy(soldBy).creditedTo(creditedTo)
                 .remarks(req.getRemarks()).build();
 
         BigDecimal total = BigDecimal.ZERO;

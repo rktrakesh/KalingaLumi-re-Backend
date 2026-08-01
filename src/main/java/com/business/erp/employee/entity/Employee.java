@@ -1,6 +1,7 @@
 package com.business.erp.employee.entity;
 
 import com.business.erp.common.audit.AuditableEntity;
+import com.business.erp.employee.enums.EmployeeCategory;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
@@ -40,6 +41,12 @@ public class Employee extends AuditableEntity {
 
     @Column(length = 100)
     private String designation;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "employee_category", nullable = false, length = 30)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Builder.Default
+    private EmployeeCategory employeeCategory = EmployeeCategory.FACTORY;
 
     @Column(name = "current_salary", nullable = false, precision = 12, scale = 2)
     private BigDecimal currentSalary;

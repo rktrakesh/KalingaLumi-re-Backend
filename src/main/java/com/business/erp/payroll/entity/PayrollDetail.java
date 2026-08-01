@@ -105,6 +105,9 @@ public class PayrollDetail {
     @Column(name = "overtime_pay", nullable = false, precision = 12, scale = 2)
     @Builder.Default
     private BigDecimal overtimePay = BigDecimal.ZERO;
+    @Column(name = "performance_incentive_amount", nullable = false, precision = 12, scale = 2)
+    @Builder.Default
+    private BigDecimal performanceIncentiveAmount = BigDecimal.ZERO;
     @Column(name = "leave_encashment_days", nullable = false, precision = 6, scale = 2)
     @Builder.Default
     private BigDecimal leaveEncashmentDays = BigDecimal.ZERO;

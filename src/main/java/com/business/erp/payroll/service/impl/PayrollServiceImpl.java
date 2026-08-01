@@ -9,11 +9,13 @@ import com.business.erp.common.exception.InvalidPayrollStateException;
 import com.business.erp.common.exception.ResourceNotFoundException;
 import com.business.erp.common.sequence.ReferenceNumberService;
 import com.business.erp.employee.entity.Employee;
+import com.business.erp.employee.enums.EmployeeCategory;
 import com.business.erp.employee.repository.EmployeeSalaryHistoryRepository;
 import com.business.erp.employee.service.EmployeeService;
 import com.business.erp.leave.service.LeaveSettlementService;
 import com.business.erp.loan.service.LoanService;
 import com.business.erp.monthclosing.service.MonthClosingService;
+import com.business.erp.performance.service.PerformanceSnapshotService;
 import com.business.erp.payroll.dto.request.DisbursePaymentRequest;
 import com.business.erp.payroll.dto.request.GeneratePayrollRequest;
 import com.business.erp.payroll.dto.response.*;
@@ -87,6 +89,7 @@ public class PayrollServiceImpl implements PayrollService {
     private final PayrollGenerationValidationPipeline validationPipeline;
     private final ClockProvider clockProvider;
     private final SettingsService settingsService;
+    private final PerformanceSnapshotService performanceSnapshotService;
     private final Logger log = LoggerFactory.getLogger(PayrollServiceImpl.class);
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -451,6 +454,8 @@ public class PayrollServiceImpl implements PayrollService {
         List<Employee> activeEmps = employeeService.getActiveEmployees();
         List<PayrollDetail> detailsToSave = new ArrayList<>(activeEmps.size());
         List<PayrollCalculationResult> resultsInOrder = new ArrayList<>(activeEmps.size());
+        List<BigDecimal> performanceIncentivesInOrder = new ArrayList<>(activeEmps.size());
+        List<Long> performanceSnapshotIdsToLink = new ArrayList<>();
         List<PayrollGenerationExceptionResponse> exceptions = new ArrayList<>();
         BigDecimal totalGross = BigDecimal.ZERO;
 
@@ -489,9 +494,22 @@ public class PayrollServiceImpl implements PayrollService {
 
                 PayrollCalculationResult result = calculationEngine.calculate(context);
 
-                detailsToSave.add(buildDetail(run, emp, snapshot, salary, result, actor));
+                // The ONE Performance Engine integration point: read the already-APPROVED
+                // incentive amount for this period. Payroll never calculates sales, targets,
+                // achievement, or slabs itself — see the Engine Communication Rule.
+                BigDecimal performanceIncentive = BigDecimal.ZERO;
+                if (emp.getEmployeeCategory() == EmployeeCategory.SALES) {
+                    performanceIncentive = performanceSnapshotService
+                            .getApprovedIncentiveAmount(emp.getId(), run.getYear(), run.getMonth())
+                            .orElse(BigDecimal.ZERO);
+                    performanceSnapshotService.findByEmployeeAndPeriod(emp.getId(), run.getYear(), run.getMonth())
+                            .ifPresent(s -> performanceSnapshotIdsToLink.add(s.getId()));
+                }
+
+                detailsToSave.add(buildDetail(run, emp, snapshot, salary, result, performanceIncentive, actor));
                 resultsInOrder.add(result);
-                totalGross = totalGross.add(result.getAmounts().getGrossSalary());
+                performanceIncentivesInOrder.add(performanceIncentive);
+                totalGross = totalGross.add(resolveGrossSalary(emp, result.getAmounts(), performanceIncentive));
             } catch (Exception ex) {
                 // One employee's failure must never abort the whole run (item 8).
                 log.warn("PayrollServiceImpl:computeAllDetails :: SKIPPED empId={} runId={} reason={}",
@@ -509,7 +527,7 @@ public class PayrollServiceImpl implements PayrollService {
         for (int i = 0; i < savedDetails.size(); i++) {
             PayrollDetail savedDetail = savedDetails.get(i);
             PayrollCalculationResult result = resultsInOrder.get(i);
-            logsToSave.add(buildCalcLog(run, savedDetail.getEmployee(), result, savedDetail.getId(), actor));
+            logsToSave.add(buildCalcLog(run, savedDetail.getEmployee(), result, performanceIncentivesInOrder.get(i), savedDetail.getId(), actor));
         }
         calculationLogRepository.saveAll(logsToSave);
 
@@ -519,6 +537,10 @@ public class PayrollServiceImpl implements PayrollService {
         run.setTotalNet(actualTotalNet.setScale(2, RoundingMode.HALF_UP));
         run.setStatus(PayrollStatus.CALCULATED);
         PayrollRun saved = payrollRunRepository.save(run);
+
+        // Traceability for the integration: record which payroll run consumed each snapshot.
+        // Purely informational — never read back by Payroll itself.
+        performanceSnapshotIdsToLink.forEach(id -> performanceSnapshotService.linkToPayrollRun(id, saved.getId()));
 
         long durationMs = System.currentTimeMillis() - startedAt;
         PayrollMetrics metrics = buildMetrics(savedDetails, durationMs, exceptions.size());
@@ -581,18 +603,43 @@ public class PayrollServiceImpl implements PayrollService {
         return v != null ? v : 0;
     }
 
+    /**
+     * SALES employees don't earn OT/Sunday/Holiday-OT pay (see Overtime Eligibility rule);
+     * their approved Performance Incentive is added to gross instead. Every other category
+     * is completely unaffected — this returns the calculation engine's own gross unchanged.
+     */
+    private BigDecimal resolveGrossSalary(Employee emp, PayrollAmounts amounts, BigDecimal performanceIncentiveAmount) {
+        if (emp.getEmployeeCategory() == EmployeeCategory.SALES) {
+            return amounts.getBasicSalary().add(amounts.getLeaveEncashmentAmount())
+                    .add(performanceIncentiveAmount).setScale(2, RoundingMode.HALF_UP);
+        }
+        return amounts.getGrossSalary();
+    }
+
     private PayrollDetail buildDetail(PayrollRun run, Employee emp, PayrollSettingsSnapshot snapshot,
-                                      BigDecimal salary, PayrollCalculationResult result, String actor) {
+                                      BigDecimal salary, PayrollCalculationResult result,
+                                      BigDecimal performanceIncentiveAmount, String actor) {
         PayrollAmounts amounts = result.getAmounts();
+        boolean isSales = emp.getEmployeeCategory() == EmployeeCategory.SALES;
+
+        BigDecimal otPay = isSales ? BigDecimal.ZERO : amounts.getOtAmount();
+        BigDecimal weeklyOffPay = isSales ? BigDecimal.ZERO : amounts.getWeeklyOffAmount();
+        BigDecimal holidayOtPay = isSales ? BigDecimal.ZERO : amounts.getHolidayOtAmount();
+        BigDecimal grossSalary = resolveGrossSalary(emp, amounts, performanceIncentiveAmount);
+        BigDecimal netSalary = isSales
+                ? grossSalary.subtract(amounts.getLossOfPayAmount()).setScale(2, RoundingMode.HALF_UP)
+                : amounts.getNetSalary();
+
         BigDecimal[] loanDeductions = loanService.calculateAndPostDeductions(
-                emp.getId(), run.getPeriodStart(), amounts.getGrossSalary(), actor);
+                emp.getId(), run.getPeriodStart(), grossSalary, actor);
         BigDecimal loanInterest = loanDeductions[0];
         BigDecimal loanPrincipal = loanDeductions[1];
         BigDecimal totalDeductions = loanInterest.add(loanPrincipal);
-        BigDecimal netAfterLoans = amounts.getNetSalary().subtract(totalDeductions).max(BigDecimal.ZERO);
-        boolean capped = totalDeductions.compareTo(amounts.getNetSalary()) > 0;
+        BigDecimal netAfterLoans = netSalary.subtract(totalDeductions).max(BigDecimal.ZERO);
+        boolean capped = totalDeductions.compareTo(netSalary) > 0;
 
-        // PayrollDetail is populated ONLY from PayrollCalculationResult (+ loan deductions, a separate concern).
+        // PayrollDetail is populated ONLY from PayrollCalculationResult (+ loan deductions, a separate concern,
+        // + the one read-only Performance Incentive figure for SALES employees).
         return PayrollDetail.builder()
                 .payrollRun(run).employee(emp)
                 .calculationVersion(run.getCalculationVersion())
@@ -614,13 +661,14 @@ public class PayrollServiceImpl implements PayrollService {
                 .weeklyOffOtMinutes(result.getWeeklyOffOtMinutes())
                 .weeklyOffMultiplier(snapshot.getWeeklyOffMultiplier())
                 .holidayOtMultiplier(snapshot.getHolidayOtMultiplier())
-                .weeklyOffPay(amounts.getWeeklyOffAmount())
-                .holidayOtPay(amounts.getHolidayOtAmount())
-                .overtimePay(amounts.getOtAmount())
+                .weeklyOffPay(weeklyOffPay)
+                .holidayOtPay(holidayOtPay)
+                .overtimePay(otPay)
+                .performanceIncentiveAmount(performanceIncentiveAmount)
                 .leaveEncashmentDays(result.getLeaveEncashmentDays())
                 .leaveEncashmentAmount(amounts.getLeaveEncashmentAmount())
                 .lossOfPayAmount(amounts.getLossOfPayAmount())
-                .grossSalary(amounts.getGrossSalary())
+                .grossSalary(grossSalary)
                 .loanInterestDeduction(loanInterest).loanPrincipalDeduction(loanPrincipal)
                 .totalDeductions(totalDeductions).netSalary(netAfterLoans)
                 .salaryCapped(capped)
@@ -628,8 +676,13 @@ public class PayrollServiceImpl implements PayrollService {
     }
 
     private PayrollCalculationLog buildCalcLog(PayrollRun run, Employee emp, PayrollCalculationResult result,
-                                               Long detailId, String actor) {
+                                               BigDecimal performanceIncentiveAmount, Long detailId, String actor) {
         PayrollAmounts amounts = result.getAmounts();
+        BigDecimal grossSalary = resolveGrossSalary(emp, amounts, performanceIncentiveAmount);
+        boolean isSales = emp.getEmployeeCategory() == EmployeeCategory.SALES;
+        BigDecimal netSalary = isSales
+                ? grossSalary.subtract(amounts.getLossOfPayAmount()).setScale(2, RoundingMode.HALF_UP)
+                : amounts.getNetSalary();
         return PayrollCalculationLog.builder()
                 .payrollRunId(run.getId()).payrollDetailId(detailId).employeeId(emp.getId())
                 .calculationVersion(run.getCalculationVersion())
@@ -642,11 +695,13 @@ public class PayrollServiceImpl implements PayrollService {
                 .approvedOtMinutes(result.getOtMinutes())
                 .holidayOtMinutes(result.getHolidayOtMinutes()).weeklyOffOtMinutes(result.getWeeklyOffOtMinutes())
                 .basicSalaryAmount(amounts.getBasicSalary())
-                .overtimeAmount(amounts.getOtAmount()).weeklyOffPayAmount(amounts.getWeeklyOffAmount())
-                .holidayOtAmount(amounts.getHolidayOtAmount())
+                .overtimeAmount(isSales ? BigDecimal.ZERO : amounts.getOtAmount())
+                .weeklyOffPayAmount(isSales ? BigDecimal.ZERO : amounts.getWeeklyOffAmount())
+                .holidayOtAmount(isSales ? BigDecimal.ZERO : amounts.getHolidayOtAmount())
+                .performanceIncentiveAmount(performanceIncentiveAmount)
                 .leaveEncashmentDays(result.getLeaveEncashmentDays()).leaveEncashmentAmount(amounts.getLeaveEncashmentAmount())
                 .lossOfPayAmount(amounts.getLossOfPayAmount())
-                .grossSalary(amounts.getGrossSalary()).finalNetSalary(amounts.getNetSalary())
+                .grossSalary(grossSalary).finalNetSalary(netSalary)
                 .calculatedBy(actor).calculatedDate(LocalDateTime.now())
                 .calculationBreakdown(String.join("\n", result.getBreakdown()))
                 .engineVersion(result.getEngineVersion())

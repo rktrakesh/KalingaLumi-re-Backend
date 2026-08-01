@@ -17,7 +17,7 @@ public class CreateSaleRequest {
     @NotEmpty
     private List<SaleItemRequest> items;
     private String remarks;
-
+    private Long soldByEmployeeId;
     @Data
     public static class SaleItemRequest {
         @NotNull

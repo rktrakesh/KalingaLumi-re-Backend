@@ -4,6 +4,7 @@ import com.business.erp.attendance.entity.AttendanceRecord;
 import com.business.erp.common.exception.BusinessException;
 import com.business.erp.common.exception.ResourceNotFoundException;
 import com.business.erp.common.response.PageResponse;
+import com.business.erp.employee.enums.EmployeeCategory;
 import com.business.erp.employee.service.EmployeeService;
 import com.business.erp.notification.service.NotificationService;
 import com.business.erp.overtime.dto.request.ApproveOvertimeRequest;
@@ -42,6 +43,13 @@ public class OvertimeServiceImpl implements OvertimeService {
     public void createOvertimeRequest(AttendanceRecord attendance, int overtimeMinutes) {
         log.info("OvertimeServiceImpl:createOvertimeRequest :: empId={} date={} minutes={}",
                 attendance.getEmployee().getId(), attendance.getAttendanceDate(), overtimeMinutes);
+
+        if (attendance.getEmployee().getEmployeeCategory() == EmployeeCategory.SALES) {
+            log.info("OvertimeServiceImpl:createOvertimeRequest :: SKIPPED empId={} is SALES category — not OT-eligible",
+                    attendance.getEmployee().getId());
+            return;
+        }
+
         OvertimeRequest ot = overtimeRepository.save(OvertimeRequest.builder()
                 .employee(attendance.getEmployee()).attendance(attendance)
                 .overtimeDate(attendance.getAttendanceDate())
