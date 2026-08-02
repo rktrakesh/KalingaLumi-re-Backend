@@ -4,7 +4,6 @@ import com.business.erp.common.audit.AuditableEntity;
 import com.business.erp.employee.enums.EmployeeCategory;
 import jakarta.persistence.*;
 import lombok.*;
-import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -41,6 +40,9 @@ public class Employee extends AuditableEntity {
 
     @Column(length = 100)
     private String designation;
+
+    @Column(length = 150)
+    private String email;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "employee_category", nullable = false, length = 30)

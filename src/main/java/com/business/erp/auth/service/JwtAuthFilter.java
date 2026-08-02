@@ -1,5 +1,6 @@
 package com.business.erp.auth.service;
 
+import com.business.erp.auth.entity.User;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -46,11 +47,29 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                     SecurityContextHolder.getContext().setAuthentication(authToken);
                     log.debug("JwtAuthFilter:doFilterInternal :: Authenticated user={} path={}",
                             username, request.getRequestURI());
+
+                    if (user instanceof User appUser && Boolean.TRUE.equals(appUser.getMustChangePassword())
+                            && !isAllowedWhileMustChangePassword(request.getRequestURI())) {
+                        log.info("JwtAuthFilter:doFilterInternal :: BLOCKED username={} path={} — must change password first",
+                                username, request.getRequestURI());
+                        response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                        response.setContentType("application/json");
+                        response.getWriter().write(
+                                "{\"success\":false,\"message\":\"Password change required before accessing this resource\"}");
+                        return;
+                    }
                 }
             }
         } catch (Exception e) {
             log.warn("JwtAuthFilter:doFilterInternal :: JWT processing failed :: {}", e.getMessage());
         }
         filterChain.doFilter(request, response);
+    }
+
+    private boolean isAllowedWhileMustChangePassword(String uri) {
+        return uri.startsWith("/api/v1/auth/change-password")
+                || uri.startsWith("/api/v1/auth/logout")
+                || uri.startsWith("/api/v1/auth/me")
+                || uri.startsWith("/api/v1/auth/refresh");
     }
 }

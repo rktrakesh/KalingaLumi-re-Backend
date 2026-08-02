@@ -15,4 +15,8 @@ public interface AuthService {
     void changePassword(String username, ChangePasswordRequest request);
 
     UserProfileResponse getProfile(String username);
+
+    void forgotPassword(String email);
+
+    void resetPassword(String token, String newPassword);
 }

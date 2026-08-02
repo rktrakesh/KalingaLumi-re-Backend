@@ -1,8 +1,10 @@
 package com.business.erp.auth.controller;
 
 import com.business.erp.auth.dto.request.ChangePasswordRequest;
+import com.business.erp.auth.dto.request.ForgotPasswordRequest;
 import com.business.erp.auth.dto.request.LoginRequest;
 import com.business.erp.auth.dto.request.RefreshTokenRequest;
+import com.business.erp.auth.dto.request.ResetPasswordRequest;
 import com.business.erp.auth.dto.response.TokenResponse;
 import com.business.erp.auth.dto.response.UserProfileResponse;
 import com.business.erp.auth.service.AuthService;
@@ -67,5 +69,21 @@ public class AuthController {
         log.info("AuthController:changePassword :: username={}", user.getUsername());
         authService.changePassword(user.getUsername(), request);
         return ResponseEntity.ok(ApiResponse.ok("Password changed successfully"));
+    }
+
+    @PostMapping("/forgot-password")
+    @Operation(summary = "Forgot password", description = "Requests a password reset link be emailed to the given address")
+    public ResponseEntity<ApiResponse<Void>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        log.info("AuthController:forgotPassword :: email={}", request.getEmail());
+        authService.forgotPassword(request.getEmail());
+        return ResponseEntity.ok(ApiResponse.ok("If that email is registered, a reset link has been sent"));
+    }
+
+    @PostMapping("/reset-password")
+    @Operation(summary = "Reset password", description = "Sets a new password using a valid Forgot Password reset token")
+    public ResponseEntity<ApiResponse<Void>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        log.info("AuthController:resetPassword :: invoked");
+        authService.resetPassword(request.getToken(), request.getNewPassword());
+        return ResponseEntity.ok(ApiResponse.ok("Password reset successfully — please log in"));
     }
 }

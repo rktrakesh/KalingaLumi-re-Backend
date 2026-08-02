@@ -49,6 +49,18 @@ public class User extends AuditableEntity implements UserDetails {
     @JdbcTypeCode(SqlTypes.VARCHAR)
     private UserStatus status = UserStatus.ACTIVE;
 
+    @Column(name = "must_change_password", nullable = false)
+    @Builder.Default
+    private Boolean mustChangePassword = false;
+
+    @Column(name = "failed_login_attempts", nullable = false)
+    @Builder.Default
+    private Integer failedLoginAttempts = 0;
+
+    /** Set when the account is auto-locked after MAX_FAILED_LOGIN_ATTEMPTS. Null = not locked. */
+    @Column(name = "locked_at")
+    private java.time.LocalDateTime lockedAt;
+
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return List.of(new SimpleGrantedAuthority(role.name()));
@@ -66,7 +78,7 @@ public class User extends AuditableEntity implements UserDetails {
 
     @Override
     public boolean isAccountNonLocked() {
-        return status == UserStatus.ACTIVE;
+        return status != UserStatus.LOCKED;
     }
 
     @Override
@@ -76,10 +88,10 @@ public class User extends AuditableEntity implements UserDetails {
 
     @Override
     public boolean isEnabled() {
-        return status == UserStatus.ACTIVE;
+        return status == UserStatus.ACTIVE || status == UserStatus.LOCKED;
     }
 
     public enum Role {ROLE_ADMIN, ROLE_MANAGER, ROLE_SUPERVISOR, ROLE_EMPLOYEE}
 
-    public enum UserStatus {ACTIVE, INACTIVE}
+    public enum UserStatus {ACTIVE, INACTIVE, LOCKED}
 }

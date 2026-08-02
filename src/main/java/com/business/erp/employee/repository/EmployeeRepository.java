@@ -8,9 +8,12 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface EmployeeRepository extends JpaRepository<Employee, Long> {
     List<Employee> findByStatus(Employee.EmployeeStatus status);
+
+    Optional<Employee> findByEmail(String email);
 
     @Query("SELECT e FROM Employee e WHERE (:status IS NULL OR e.status = :status) AND " +
             "(:search IS NULL OR LOWER(e.name) LIKE LOWER(CONCAT('%',:search,'%')) " +

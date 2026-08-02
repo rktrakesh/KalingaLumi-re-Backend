@@ -166,17 +166,44 @@ public class PerformanceController {
 
     // ---------------------------------------------------------------- Dashboards
 
-    @GetMapping("/dashboard/employee/{employeeId}/{year}/{month}")
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_MANAGER')")
-    public ResponseEntity<ApiResponse<EmployeePerformanceDashboardResponse>> getEmployeeDashboard(
-            @PathVariable Long employeeId, @PathVariable int year, @PathVariable int month) {
-        return ResponseEntity.ok(ApiResponse.ok(dashboardService.getEmployeeDashboard(employeeId, year, month)));
+    @GetMapping("/me")
+    public ResponseEntity<ApiResponse<EmployeePerformanceDashboardResponse>> getMyDashboard(
+            @AuthenticationPrincipal UserDetails principal,
+            @RequestParam(required = false) Integer year, @RequestParam(required = false) Integer month) {
+        Long employeeId = resolveEmployeeIdOrThrow(principal);
+        java.time.YearMonth period = resolvePeriod(year, month);
+        return ResponseEntity.ok(ApiResponse.ok(
+                dashboardService.getEmployeeDashboard(employeeId, period.getYear(), period.getMonthValue())));
     }
 
-    @GetMapping("/dashboard/management/{year}/{month}")
+    @GetMapping("/employee/{employeeId}")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_MANAGER')")
+    public ResponseEntity<ApiResponse<EmployeePerformanceDashboardResponse>> getEmployeeDashboard(
+            @PathVariable Long employeeId,
+            @RequestParam(required = false) Integer year, @RequestParam(required = false) Integer month) {
+        java.time.YearMonth period = resolvePeriod(year, month);
+        return ResponseEntity.ok(ApiResponse.ok(
+                dashboardService.getEmployeeDashboard(employeeId, period.getYear(), period.getMonthValue())));
+    }
+
+    @GetMapping("/dashboard")
     @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_MANAGER')")
     public ResponseEntity<ApiResponse<ManagementPerformanceDashboardResponse>> getManagementDashboard(
-            @PathVariable int year, @PathVariable int month) {
-        return ResponseEntity.ok(ApiResponse.ok(dashboardService.getManagementDashboard(year, month)));
+            @RequestParam(required = false) Integer year, @RequestParam(required = false) Integer month) {
+        java.time.YearMonth period = resolvePeriod(year, month);
+        return ResponseEntity.ok(ApiResponse.ok(
+                dashboardService.getManagementDashboard(period.getYear(), period.getMonthValue())));
+    }
+
+    private java.time.YearMonth resolvePeriod(Integer year, Integer month) {
+        return (year != null && month != null) ? java.time.YearMonth.of(year, month) : java.time.YearMonth.now();
+    }
+
+    private Long resolveEmployeeIdOrThrow(UserDetails principal) {
+        if (principal instanceof com.business.erp.auth.entity.User appUser && appUser.getEmployeeId() != null) {
+            return appUser.getEmployeeId();
+        }
+        throw new com.business.erp.common.exception.BusinessException(
+                "NO_LINKED_EMPLOYEE: this account has no linked employee record, so it has no performance dashboard");
     }
 }

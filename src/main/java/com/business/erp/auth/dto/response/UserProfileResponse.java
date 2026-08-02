@@ -12,4 +12,6 @@ public class UserProfileResponse {
     private String role;
     private Long employeeId;
     private String status;
+    private Boolean mustChangePassword;
+    private String employeeCategory;
 }

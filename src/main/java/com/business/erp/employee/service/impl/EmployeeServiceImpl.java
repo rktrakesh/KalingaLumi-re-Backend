@@ -3,6 +3,7 @@ package com.business.erp.employee.service.impl;
 import com.business.erp.common.audit.AuditService;
 import com.business.erp.common.exception.ResourceNotFoundException;
 import com.business.erp.common.sequence.ReferenceNumberService;
+import com.business.erp.auth.service.UserOnboardingService;
 import com.business.erp.employee.dto.request.CreateEmployeeRequest;
 import com.business.erp.employee.dto.request.UpdateEmployeeRequest;
 import com.business.erp.employee.dto.request.UpdateSalaryRequest;
@@ -10,6 +11,7 @@ import com.business.erp.employee.dto.response.EmployeeResponse;
 import com.business.erp.employee.dto.response.SalaryHistoryResponse;
 import com.business.erp.employee.entity.Employee;
 import com.business.erp.employee.entity.EmployeeSalaryHistory;
+import com.business.erp.employee.enums.EmployeeCategory;
 import com.business.erp.employee.repository.EmployeeRepository;
 import com.business.erp.employee.repository.EmployeeSalaryHistoryRepository;
 import com.business.erp.employee.service.EmployeeService;
@@ -32,6 +34,7 @@ public class EmployeeServiceImpl implements EmployeeService {
     private final EmployeeSalaryHistoryRepository salaryHistoryRepository;
     private final ReferenceNumberService refService;
     private final AuditService auditService;
+    private final UserOnboardingService userOnboardingService;
     private final Logger log = LoggerFactory.getLogger(EmployeeServiceImpl.class);
 
     @Override
@@ -41,8 +44,10 @@ public class EmployeeServiceImpl implements EmployeeService {
         String code = refService.generateEmployeeCode();
         Employee emp = Employee.builder()
                 .employeeCode(code).name(req.getName()).phone(req.getPhone())
-                .address(req.getAddress()).joiningDate(req.getJoiningDate())
-                .designation(req.getDesignation()).currentSalary(req.getCurrentSalary())
+                .address(req.getAddress()).email(req.getEmail()).joiningDate(req.getJoiningDate())
+                .designation(req.getDesignation())
+                .employeeCategory(req.getEmployeeCategory() != null ? req.getEmployeeCategory() : EmployeeCategory.FACTORY)
+                .currentSalary(req.getCurrentSalary())
                 .status(Employee.EmployeeStatus.ACTIVE).build();
         emp = employeeRepository.save(emp);
         salaryHistoryRepository.save(EmployeeSalaryHistory.builder()
@@ -50,6 +55,9 @@ public class EmployeeServiceImpl implements EmployeeService {
                 .remarks(req.getSalaryRemarks() != null ? req.getSalaryRemarks() : "Initial salary")
                 .createdBy(createdBy).build());
         auditService.log("EMPLOYEE", "CREATE", "Employee", emp.getId());
+
+        userOnboardingService.onboard(emp, createdBy);
+
         log.info("EmployeeServiceImpl:create :: SUCCESS code={} id={}", code, emp.getId());
         return toResponse(emp);
     }

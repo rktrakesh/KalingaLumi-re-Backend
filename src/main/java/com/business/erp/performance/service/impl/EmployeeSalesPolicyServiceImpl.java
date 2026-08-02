@@ -56,6 +56,7 @@ public class EmployeeSalesPolicyServiceImpl implements EmployeeSalesPolicyServic
                 .effectiveFrom(request.getEffectiveFrom()).effectiveTo(null)
                 .version(nextVersion).status(SalesPolicyStatus.ACTIVE)
                 .build();
+        policy.setCreatedDate(LocalDateTime.now());
 
         List<IncentiveSlab> slabs = new ArrayList<>();
         for (CreateSalesPolicyRequest.SlabRequest slabReq : request.getSlabs()) {
