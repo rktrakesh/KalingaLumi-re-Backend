@@ -6,7 +6,7 @@ import com.business.erp.common.exception.ResourceNotFoundException;
 import com.business.erp.customer.entity.Customer;
 import com.business.erp.customer.service.CustomerService;
 import com.business.erp.employee.entity.Employee;
-import com.business.erp.employee.enums.EmployeeCategory;
+import com.business.erp.employee.enums.EmployeeCategoryCode;
 import com.business.erp.employee.service.EmployeeService;
 import com.business.erp.performance.entity.CustomerOwnership;
 import com.business.erp.performance.enums.OwnershipStatus;
@@ -166,9 +166,9 @@ public class CustomerOwnershipServiceImpl implements CustomerOwnershipService {
 
     private Employee requireSalesEmployee(Long employeeId) {
         Employee employee = employeeService.getEmployee(employeeId);
-        if (employee.getEmployeeCategory() != EmployeeCategory.SALES) {
+        if (!EmployeeCategoryCode.SALES.equals(employee.getEmployeeCategory().getCode())) {
             throw new BusinessException("NOT_SALES_EMPLOYEE: only SALES-category employees can own customers " +
-                    "(employeeId=" + employeeId + " is " + employee.getEmployeeCategory() + ")");
+                    "(employeeId=" + employeeId + " is " + employee.getEmployeeCategory().getCode() + ")");
         }
         return employee;
     }

@@ -13,6 +13,8 @@ import java.util.Optional;
 public interface EmployeeRepository extends JpaRepository<Employee, Long> {
     List<Employee> findByStatus(Employee.EmployeeStatus status);
 
+    List<Employee> findByStatusIn(List<Employee.EmployeeStatus> statuses);
+
     Optional<Employee> findByEmail(String email);
 
     @Query("SELECT e FROM Employee e WHERE (:status IS NULL OR e.status = :status) AND " +

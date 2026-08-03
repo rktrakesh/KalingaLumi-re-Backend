@@ -9,7 +9,7 @@ import com.business.erp.common.exception.InvalidPayrollStateException;
 import com.business.erp.common.exception.ResourceNotFoundException;
 import com.business.erp.common.sequence.ReferenceNumberService;
 import com.business.erp.employee.entity.Employee;
-import com.business.erp.employee.enums.EmployeeCategory;
+import com.business.erp.employee.enums.EmployeeCategoryCode;
 import com.business.erp.employee.repository.EmployeeSalaryHistoryRepository;
 import com.business.erp.employee.service.EmployeeService;
 import com.business.erp.leave.service.LeaveSettlementService;
@@ -498,7 +498,7 @@ public class PayrollServiceImpl implements PayrollService {
                 // incentive amount for this period. Payroll never calculates sales, targets,
                 // achievement, or slabs itself — see the Engine Communication Rule.
                 BigDecimal performanceIncentive = BigDecimal.ZERO;
-                if (emp.getEmployeeCategory() == EmployeeCategory.SALES) {
+                if (EmployeeCategoryCode.SALES.equals(emp.getEmployeeCategory().getCode())) {
                     performanceIncentive = performanceSnapshotService
                             .getApprovedIncentiveAmount(emp.getId(), run.getYear(), run.getMonth())
                             .orElse(BigDecimal.ZERO);
@@ -609,7 +609,7 @@ public class PayrollServiceImpl implements PayrollService {
      * is completely unaffected — this returns the calculation engine's own gross unchanged.
      */
     private BigDecimal resolveGrossSalary(Employee emp, PayrollAmounts amounts, BigDecimal performanceIncentiveAmount) {
-        if (emp.getEmployeeCategory() == EmployeeCategory.SALES) {
+        if (EmployeeCategoryCode.SALES.equals(emp.getEmployeeCategory().getCode())) {
             return amounts.getBasicSalary().add(amounts.getLeaveEncashmentAmount())
                     .add(performanceIncentiveAmount).setScale(2, RoundingMode.HALF_UP);
         }
@@ -620,7 +620,7 @@ public class PayrollServiceImpl implements PayrollService {
                                       BigDecimal salary, PayrollCalculationResult result,
                                       BigDecimal performanceIncentiveAmount, String actor) {
         PayrollAmounts amounts = result.getAmounts();
-        boolean isSales = emp.getEmployeeCategory() == EmployeeCategory.SALES;
+        boolean isSales = EmployeeCategoryCode.SALES.equals(emp.getEmployeeCategory().getCode());
 
         BigDecimal otPay = isSales ? BigDecimal.ZERO : amounts.getOtAmount();
         BigDecimal weeklyOffPay = isSales ? BigDecimal.ZERO : amounts.getWeeklyOffAmount();
@@ -679,7 +679,7 @@ public class PayrollServiceImpl implements PayrollService {
                                                BigDecimal performanceIncentiveAmount, Long detailId, String actor) {
         PayrollAmounts amounts = result.getAmounts();
         BigDecimal grossSalary = resolveGrossSalary(emp, amounts, performanceIncentiveAmount);
-        boolean isSales = emp.getEmployeeCategory() == EmployeeCategory.SALES;
+        boolean isSales = EmployeeCategoryCode.SALES.equals(emp.getEmployeeCategory().getCode());
         BigDecimal netSalary = isSales
                 ? grossSalary.subtract(amounts.getLossOfPayAmount()).setScale(2, RoundingMode.HALF_UP)
                 : amounts.getNetSalary();

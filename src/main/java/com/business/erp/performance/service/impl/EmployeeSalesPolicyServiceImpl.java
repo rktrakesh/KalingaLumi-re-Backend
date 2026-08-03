@@ -3,7 +3,7 @@ package com.business.erp.performance.service.impl;
 import com.business.erp.common.exception.BusinessException;
 import com.business.erp.common.exception.ResourceNotFoundException;
 import com.business.erp.employee.entity.Employee;
-import com.business.erp.employee.enums.EmployeeCategory;
+import com.business.erp.employee.enums.EmployeeCategoryCode;
 import com.business.erp.employee.service.EmployeeService;
 import com.business.erp.performance.dto.request.CreateSalesPolicyRequest;
 import com.business.erp.performance.entity.EmployeeSalesPolicy;
@@ -34,9 +34,9 @@ public class EmployeeSalesPolicyServiceImpl implements EmployeeSalesPolicyServic
     @Transactional
     public EmployeeSalesPolicy createPolicy(CreateSalesPolicyRequest request, String actor) {
         Employee employee = employeeService.getEmployee(request.getEmployeeId());
-        if (employee.getEmployeeCategory() != EmployeeCategory.SALES) {
+        if (!EmployeeCategoryCode.SALES.equals(employee.getEmployeeCategory().getCode())) {
             throw new BusinessException("NOT_SALES_EMPLOYEE: only SALES-category employees can have a sales policy " +
-                    "(employeeId=" + request.getEmployeeId() + " is " + employee.getEmployeeCategory() + ")");
+                    "(employeeId=" + request.getEmployeeId() + " is " + employee.getEmployeeCategory().getCode() + ")");
         }
         validateSlabs(request.getSlabs());
 

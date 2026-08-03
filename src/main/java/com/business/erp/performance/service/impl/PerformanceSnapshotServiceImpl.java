@@ -3,7 +3,7 @@ package com.business.erp.performance.service.impl;
 import com.business.erp.common.exception.BusinessException;
 import com.business.erp.common.exception.ResourceNotFoundException;
 import com.business.erp.employee.entity.Employee;
-import com.business.erp.employee.enums.EmployeeCategory;
+import com.business.erp.employee.enums.EmployeeCategoryCode;
 import com.business.erp.employee.service.EmployeeService;
 import com.business.erp.performance.engine.PerformanceCalculationContext;
 import com.business.erp.performance.engine.PerformanceCalculationEngine;
@@ -160,7 +160,7 @@ public class PerformanceSnapshotServiceImpl implements PerformanceSnapshotServic
     @Transactional
     public List<PerformanceSnapshot> generateForAllSalesEmployees(int year, int month, String generatedBy) {
         List<Employee> salesEmployees = employeeService.getActiveEmployees().stream()
-                .filter(e -> e.getEmployeeCategory() == EmployeeCategory.SALES)
+                .filter(e -> EmployeeCategoryCode.SALES.equals(e.getEmployeeCategory().getCode()))
                 .toList();
 
         List<PerformanceSnapshot> generated = new ArrayList<>(salesEmployees.size());

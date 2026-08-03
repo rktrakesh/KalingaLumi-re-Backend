@@ -165,7 +165,7 @@ public class AuthServiceImpl implements AuthService {
         String employeeCategory = null;
         if (user.getEmployeeId() != null) {
             employeeCategory = employeeRepository.findById(user.getEmployeeId())
-                    .map(e -> e.getEmployeeCategory().name()).orElse(null);
+                    .map(e -> e.getEmployeeCategory().getCode()).orElse(null);
         }
 
         return UserProfileResponse.builder()

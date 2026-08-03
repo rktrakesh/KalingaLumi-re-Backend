@@ -1,7 +1,7 @@
 package com.business.erp.performance.service.impl;
 
 import com.business.erp.employee.entity.Employee;
-import com.business.erp.employee.enums.EmployeeCategory;
+import com.business.erp.employee.enums.EmployeeCategoryCode;
 import com.business.erp.employee.service.EmployeeService;
 import com.business.erp.performance.dto.response.EmployeePerformanceDashboardResponse;
 import com.business.erp.performance.dto.response.ManagementPerformanceDashboardResponse;
@@ -56,7 +56,7 @@ public class PerformanceDashboardServiceImpl implements PerformanceDashboardServ
     @Override
     public ManagementPerformanceDashboardResponse getManagementDashboard(int year, int month) {
         List<Employee> salesEmployees = employeeService.getActiveEmployees().stream()
-                .filter(e -> e.getEmployeeCategory() == EmployeeCategory.SALES)
+                .filter(e -> EmployeeCategoryCode.SALES.equals(e.getEmployeeCategory().getCode()))
                 .toList();
 
         List<PerformanceLiveMetrics> allMetrics = new ArrayList<>(salesEmployees.size());
