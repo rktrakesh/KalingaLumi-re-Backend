@@ -1,11 +1,13 @@
 package com.business.erp.settings.controller;
 
 import com.business.erp.common.response.ApiResponse;
+import com.business.erp.common.exception.BusinessException;
 import com.business.erp.settings.dto.response.SettingResponse;
 import com.business.erp.settings.dto.request.UpdateSettingRequest;
 import com.business.erp.settings.entity.AppSetting;
 import com.business.erp.settings.entity.AppSettingHistory;
 import com.business.erp.settings.enums.SettingKey;
+import com.business.erp.settings.enums.SettingCategory;
 import com.business.erp.settings.service.SettingsService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -35,10 +37,12 @@ public class SettingsController {
     private final Logger log = LoggerFactory.getLogger(SettingsController.class);
 
     @GetMapping
-    @Operation(summary = "Get all settings", description = "Retrieve all current application settings")
-    public ResponseEntity<ApiResponse<List<SettingResponse>>> getAll() {
-        log.debug("SettingsController:getAll :: Fetching all settings");
-        List<SettingResponse> settings = settingsService.getAllSettings().stream()
+    @Operation(summary = "Get all settings", description = "Retrieve all current application settings, optionally filtered by category")
+    public ResponseEntity<ApiResponse<List<SettingResponse>>> getAll(
+            @RequestParam(required = false) String category) {
+        SettingCategory settingCategory = parseSettingCategory(category);
+        log.debug("SettingsController:getAll :: Fetching settings category={}", settingCategory);
+        List<SettingResponse> settings = settingsService.getAllSettings(settingCategory).stream()
                 .map(this::toResponse).collect(Collectors.toList());
         return ResponseEntity.ok(ApiResponse.ok(settings));
     }
@@ -50,7 +54,7 @@ public class SettingsController {
             @Valid @RequestBody UpdateSettingRequest request,
             @AuthenticationPrincipal UserDetails user) {
         log.info("SettingsController:update :: key={} by={}", key, user.getUsername());
-        SettingKey settingKey = SettingKey.valueOf(key);
+        SettingKey settingKey = parseSettingKey(key);
         AppSetting updated = settingsService.updateSetting(settingKey, request.getValue(), user.getUsername());
         return ResponseEntity.ok(ApiResponse.ok(toResponse(updated), "Setting updated. Effective from next payroll cycle."));
     }
@@ -59,12 +63,29 @@ public class SettingsController {
     @Operation(summary = "Get setting history", description = "Get historical changes for a specific setting key")
     public ResponseEntity<ApiResponse<List<AppSettingHistory>>> getHistory(@PathVariable String key) {
         log.debug("SettingsController:getHistory :: key={}", key);
-        return ResponseEntity.ok(ApiResponse.ok(settingsService.getHistory(SettingKey.valueOf(key))));
+        return ResponseEntity.ok(ApiResponse.ok(settingsService.getHistory(parseSettingKey(key))));
     }
 
     private SettingResponse toResponse(AppSetting s) {
         return SettingResponse.builder()
-                .id(s.getId()).settingKey(s.getSettingKey()).settingValue(s.getSettingValue())
+                .id(s.getId()).settingKey(s.getSettingKey()).settingCategory(s.getSettingCategory().name()).settingValue(s.getSettingValue())
                 .description(s.getDescription()).effectiveFromDate(s.getEffectiveFromDate()).build();
+    }
+
+    private SettingKey parseSettingKey(String key) {
+        try {
+            return SettingKey.valueOf(key);
+        } catch (IllegalArgumentException ex) {
+            throw new BusinessException("Invalid setting key: " + key);
+        }
+    }
+
+    private SettingCategory parseSettingCategory(String category) {
+        if (category == null || category.isBlank()) return null;
+        try {
+            return SettingCategory.valueOf(category);
+        } catch (IllegalArgumentException ex) {
+            throw new BusinessException("Invalid setting category: " + category);
+        }
     }
 }

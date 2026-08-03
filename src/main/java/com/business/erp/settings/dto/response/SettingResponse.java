@@ -10,6 +10,7 @@ import java.time.LocalDate;
 public class SettingResponse {
     private Long id;
     private String settingKey;
+    private String settingCategory;
     private String settingValue;
     private String description;
     private LocalDate effectiveFromDate;

@@ -4,6 +4,7 @@ import com.business.erp.common.exception.BusinessException;
 import com.business.erp.settings.entity.AppSetting;
 import com.business.erp.settings.entity.AppSettingHistory;
 import com.business.erp.settings.enums.SettingKey;
+import com.business.erp.settings.enums.SettingCategory;
 import com.business.erp.settings.repository.AppSettingHistoryRepository;
 import com.business.erp.settings.repository.AppSettingRepository;
 import com.business.erp.settings.service.SettingsService;
@@ -92,6 +93,11 @@ public class SettingsServiceImpl implements SettingsService {
     @Override
     public List<AppSetting> getAllSettings() {
         return settingRepository.findAll();
+    }
+
+    @Override
+    public List<AppSetting> getAllSettings(SettingCategory category) {
+        return category == null ? getAllSettings() : settingRepository.findBySettingCategory(category);
     }
 
     @Override

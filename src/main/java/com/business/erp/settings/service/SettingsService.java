@@ -3,6 +3,7 @@ package com.business.erp.settings.service;
 import com.business.erp.settings.entity.AppSetting;
 import com.business.erp.settings.entity.AppSettingHistory;
 import com.business.erp.settings.enums.SettingKey;
+import com.business.erp.settings.enums.SettingCategory;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -26,6 +27,8 @@ public interface SettingsService {
     AppSetting updateSetting(SettingKey key, String newValue, String changedBy);
 
     List<AppSetting> getAllSettings();
+
+    List<AppSetting> getAllSettings(SettingCategory category);
 
     List<AppSettingHistory> getHistory(SettingKey key);
 }
