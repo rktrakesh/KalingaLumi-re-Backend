@@ -92,12 +92,14 @@ public class EmployeeServiceImpl implements EmployeeService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Page<EmployeeResponse> findAll(Employee.EmployeeStatus status, String search, Pageable pageable) {
         log.debug("EmployeeServiceImpl:findAll :: status={} search={}", status, search);
         return employeeRepository.findWithFilters(status, search, pageable).map(this::toResponse);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public EmployeeResponse findById(Long id) {
         log.debug("EmployeeServiceImpl:findById :: id={}", id);
         return toResponse(getEmployee(id));
