@@ -46,7 +46,7 @@ public class PayrollExceptionReportService {
 
         List<PayrollExceptionResponse> results = new ArrayList<>();
 
-        for (Employee emp : employeeService.getActiveEmployees()) {
+        for (Employee emp : employeeService.getAttendanceEligibleEmployees()) {
             Map<String, List<LocalDate>> issues = new LinkedHashMap<>();
 
             List<AttendanceRecord> records = attendanceRepository

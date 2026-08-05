@@ -55,7 +55,7 @@ public class PerformanceDashboardServiceImpl implements PerformanceDashboardServ
 
     @Override
     public ManagementPerformanceDashboardResponse getManagementDashboard(int year, int month) {
-        List<Employee> salesEmployees = employeeService.getActiveEmployees().stream()
+        List<Employee> salesEmployees = employeeService.getAttendanceEligibleEmployees().stream()
                 .filter(e -> EmployeeCategoryCode.SALES.equals(e.getEmployeeCategory().getCode()))
                 .toList();
 

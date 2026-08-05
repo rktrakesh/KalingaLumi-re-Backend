@@ -132,7 +132,7 @@ public class LeaveServiceImpl implements LeaveService {
     @Transactional
     public void allocateMonthlyLeaves(int year, int month) {
         int allocation = settingsService.getIntValue(SettingKey.PAID_LEAVES_PER_MONTH);
-        List<Employee> activeEmps = employeeService.getActiveEmployees();
+        List<Employee> activeEmps = employeeService.getAttendanceEligibleEmployees();
         for (Employee emp : activeEmps) {
             if (leaveBalanceRepository.findByEmployeeIdAndYearAndMonth(emp.getId(), year, month).isEmpty()) {
                 leaveBalanceRepository.save(LeaveBalance.builder().employee(emp).year(year).month(month)

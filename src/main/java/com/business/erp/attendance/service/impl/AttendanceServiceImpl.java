@@ -52,8 +52,8 @@ public class AttendanceServiceImpl implements AttendanceService {
     public AttendanceResponse checkIn(CheckInRequest req, String createdBy) {
         log.info("AttendanceServiceImpl:checkIn :: empId={} date={}", req.getEmployeeId(), req.getAttendanceDate());
         Employee emp = employeeService.getEmployee(req.getEmployeeId());
-        if (emp.getStatus() != Employee.EmployeeStatus.ACTIVE)
-            throw new BusinessException("Employee is not active: " + emp.getEmployeeCode());
+        if (emp.getStatus() != Employee.EmployeeStatus.ACTIVE && emp.getStatus() != Employee.EmployeeStatus.ON_NOTICE)
+            throw new BusinessException("Employee is not attendance-eligible (status=" + emp.getStatus() + "): " + emp.getEmployeeCode());
         if (attendanceRepository.findByEmployeeIdAndAttendanceDate(req.getEmployeeId(), req.getAttendanceDate()).isPresent())
             throw new BusinessException("Attendance already marked for " + emp.getName() + " on " + req.getAttendanceDate());
         AttendanceRecord record = attendanceRepository.save(AttendanceRecord.builder()

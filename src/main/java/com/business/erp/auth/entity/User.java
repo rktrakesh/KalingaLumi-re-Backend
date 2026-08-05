@@ -1,9 +1,9 @@
 package com.business.erp.auth.entity;
 
 import com.business.erp.common.audit.AuditableEntity;
+import com.business.erp.employee.entity.Employee;
 import jakarta.persistence.*;
 import lombok.*;
-import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import org.springframework.security.core.GrantedAuthority;
@@ -40,8 +40,9 @@ public class User extends AuditableEntity implements UserDetails {
     @JdbcTypeCode(SqlTypes.VARCHAR)
     private Role role;
 
-    @Column(name = "employee_id")
-    private Long employeeId;
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "employee_id")
+    private Employee employee;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -57,9 +58,15 @@ public class User extends AuditableEntity implements UserDetails {
     @Builder.Default
     private Integer failedLoginAttempts = 0;
 
-    /** Set when the account is auto-locked after MAX_FAILED_LOGIN_ATTEMPTS. Null = not locked. */
+    /**
+     * Set when the account is auto-locked after MAX_FAILED_LOGIN_ATTEMPTS. Null = not locked.
+     */
     @Column(name = "locked_at")
     private java.time.LocalDateTime lockedAt;
+
+    public Long getEmployeeId() {
+        return employee != null ? employee.getId() : null;
+    }
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
@@ -88,7 +95,14 @@ public class User extends AuditableEntity implements UserDetails {
 
     @Override
     public boolean isEnabled() {
-        return status == UserStatus.ACTIVE || status == UserStatus.LOCKED;
+        if (status != UserStatus.ACTIVE) {
+            return false;
+        }
+        if (employee == null) {
+            return true;
+        }
+        return employee.getStatus() == Employee.EmployeeStatus.ACTIVE
+                || employee.getStatus() == Employee.EmployeeStatus.ON_NOTICE;
     }
 
     public enum Role {ROLE_ADMIN, ROLE_MANAGER, ROLE_SUPERVISOR, ROLE_EMPLOYEE}

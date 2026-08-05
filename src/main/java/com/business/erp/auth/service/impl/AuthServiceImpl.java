@@ -23,8 +23,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.LockedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,6 +35,14 @@ import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
+/**
+ * Login Eligibility (employee status ACTIVE/ON_NOTICE) is deliberately NOT checked here
+ * anymore — see {@link User#isEnabled()} and {@code UserDetailsServiceImpl}. This class no
+ * longer queries {@code EmployeeRepository} to verify login eligibility; the only remaining
+ * uses of it below ({@link #getProfile}, {@link #forgotPassword}) are unrelated lookups
+ * (reading the employee category for the profile response, and finding an employee by
+ * email for the reset flow) that have nothing to do with authentication itself.
+ */
 @Service
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
@@ -57,8 +67,9 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public TokenResponse login(LoginRequest request) {
         log.info("AuthServiceImpl:login :: Attempting login for username={}", request.getUsername());
+        Authentication authResult;
         try {
-            authenticationManager.authenticate(
+            authResult = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword()));
         } catch (BadCredentialsException ex) {
             recordFailedAttempt(request.getUsername());
@@ -67,10 +78,14 @@ public class AuthServiceImpl implements AuthService {
             loginAuditService.record(userRepository.findByUsername(request.getUsername()).orElse(null),
                     request.getUsername(), LoginAuditEventType.LOGIN_FAILURE, "Account is locked");
             throw ex;
+        } catch (DisabledException ex) {
+            loginAuditService.record(userRepository.findByUsername(request.getUsername()).orElse(null),
+                    request.getUsername(), LoginAuditEventType.LOGIN_FAILURE,
+                    "Account disabled or employee not login-eligible");
+            throw ex;
         }
 
-        User user = userRepository.findByUsername(request.getUsername())
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        User user = (User) authResult.getPrincipal();
 
         if (user.getFailedLoginAttempts() != null && user.getFailedLoginAttempts() != 0) {
             user.setFailedLoginAttempts(0);
@@ -186,7 +201,7 @@ public class AuthServiceImpl implements AuthService {
             log.info("AuthServiceImpl:forgotPassword :: no employee found for email={} (silently ignored)", email);
             return;
         }
-        Optional<User> userOpt = userRepository.findByEmployeeId(employeeOpt.get().getId());
+        Optional<User> userOpt = userRepository.findByEmployee_Id(employeeOpt.get().getId());
         if (userOpt.isEmpty()) {
             log.info("AuthServiceImpl:forgotPassword :: employee has no linked user, email={} (silently ignored)", email);
             return;

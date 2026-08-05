@@ -159,7 +159,7 @@ public class PerformanceSnapshotServiceImpl implements PerformanceSnapshotServic
     @Override
     @Transactional
     public List<PerformanceSnapshot> generateForAllSalesEmployees(int year, int month, String generatedBy) {
-        List<Employee> salesEmployees = employeeService.getActiveEmployees().stream()
+        List<Employee> salesEmployees = employeeService.getAttendanceEligibleEmployees().stream()
                 .filter(e -> EmployeeCategoryCode.SALES.equals(e.getEmployeeCategory().getCode()))
                 .toList();
 

@@ -41,7 +41,7 @@ public class UserOnboardingServiceImpl implements UserOnboardingService {
         User user = User.builder()
                 .username(username).passwordHash(encodedPassword)
                 .fullName(employee.getName()).role(User.Role.ROLE_EMPLOYEE)
-                .employeeId(employee.getId())
+                .employee(employee)
                 .status(User.UserStatus.ACTIVE)
                 .mustChangePassword(true)
                 .failedLoginAttempts(0)

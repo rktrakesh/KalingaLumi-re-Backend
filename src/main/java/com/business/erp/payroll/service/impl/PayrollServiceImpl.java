@@ -451,7 +451,7 @@ public class PayrollServiceImpl implements PayrollService {
         Map<LocalDate, com.business.erp.holiday.entity.Holiday> holidaysByDate =
                 calendarEngine.loadHolidays(run.getPeriodStart(), run.getPeriodEnd());
 
-        List<Employee> activeEmps = employeeService.getActiveEmployees();
+        List<Employee> activeEmps = employeeService.getAttendanceEligibleEmployees();
         List<PayrollDetail> detailsToSave = new ArrayList<>(activeEmps.size());
         List<PayrollCalculationResult> resultsInOrder = new ArrayList<>(activeEmps.size());
         List<BigDecimal> performanceIncentivesInOrder = new ArrayList<>(activeEmps.size());

@@ -2,6 +2,7 @@ package com.business.erp.employee.service.impl;
 
 import com.business.erp.auth.service.UserOnboardingService;
 import com.business.erp.common.audit.AuditService;
+import com.business.erp.common.exception.BusinessException;
 import com.business.erp.common.exception.ResourceNotFoundException;
 import com.business.erp.common.sequence.ReferenceNumberService;
 import com.business.erp.employee.dto.request.CreateEmployeeRequest;
@@ -20,6 +21,7 @@ import com.business.erp.employee.service.DepartmentMasterService;
 import com.business.erp.employee.service.DesignationMasterService;
 import com.business.erp.employee.service.EmployeeCategoryMasterService;
 import com.business.erp.employee.service.EmployeeService;
+import com.business.erp.employee.validation.DesignationCategoryValidator;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,7 +45,8 @@ public class EmployeeServiceImpl implements EmployeeService {
     private final EmployeeCategoryMasterService categoryMasterService;
     private final DesignationMasterService designationMasterService;
     private final DepartmentMasterService departmentMasterService;
-    private final Logger log = LoggerFactory.getLogger(EmployeeServiceImpl.class);
+    private final DesignationCategoryValidator designationCategoryValidator;
+    private static final Logger log = LoggerFactory.getLogger(EmployeeServiceImpl.class);
 
     @Override
     @Transactional
@@ -53,6 +56,7 @@ public class EmployeeServiceImpl implements EmployeeService {
 
         EmployeeCategoryMaster category = categoryMasterService.getEntityById(req.getEmployeeCategoryId());
         DesignationMaster designation = designationMasterService.getEntityById(req.getDesignationId());
+        designationCategoryValidator.validate(designation, category);
         DepartmentMaster department = req.getDepartmentId() != null
                 ? departmentMasterService.getEntityById(req.getDepartmentId()) : null;
         Employee reportingManager = req.getReportingManagerId() != null
@@ -78,6 +82,9 @@ public class EmployeeServiceImpl implements EmployeeService {
                 .createdBy(createdBy).build());
         auditService.log("EMPLOYEE", "CREATE", "Employee", emp.getId());
 
+        // User Onboarding Service (IAM): Employee Created -> Create User -> Default Role ->
+        // Temporary Password -> Welcome Email -> mustChangePassword = true. One employee,
+        // one user account, enforced by the unique+FK constraint on users.employee_id.
         userOnboardingService.onboard(emp, createdBy);
 
         log.info("EmployeeServiceImpl:create :: SUCCESS code={} id={}", code, emp.getId());
@@ -85,14 +92,12 @@ public class EmployeeServiceImpl implements EmployeeService {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public Page<EmployeeResponse> findAll(Employee.EmployeeStatus status, String search, Pageable pageable) {
         log.debug("EmployeeServiceImpl:findAll :: status={} search={}", status, search);
         return employeeRepository.findWithFilters(status, search, pageable).map(this::toResponse);
     }
 
     @Override
-    @Transactional(readOnly = true)
     public EmployeeResponse findById(Long id) {
         log.debug("EmployeeServiceImpl:findById :: id={}", id);
         return toResponse(getEmployee(id));
@@ -107,11 +112,27 @@ public class EmployeeServiceImpl implements EmployeeService {
         if (req.getPhone() != null) emp.setPhone(req.getPhone());
         if (req.getAddress() != null) emp.setAddress(req.getAddress());
         if (req.getEmail() != null) emp.setEmail(req.getEmail());
-        if (req.getDesignationId() != null) emp.setDesignation(designationMasterService.getEntityById(req.getDesignationId()));
-        if (req.getDepartmentId() != null) emp.setDepartment(departmentMasterService.getEntityById(req.getDepartmentId()));
-        if (req.getEmployeeCategoryId() != null) emp.setEmployeeCategory(categoryMasterService.getEntityById(req.getEmployeeCategoryId()));
+
+        // Designation and Category may each be updated independently or together — whichever
+        // combination results, the designation must belong to the resulting category.
+        if (req.getDesignationId() != null || req.getEmployeeCategoryId() != null) {
+            DesignationMaster newDesignation = req.getDesignationId() != null
+                    ? designationMasterService.getEntityById(req.getDesignationId()) : emp.getDesignation();
+            EmployeeCategoryMaster newCategory = req.getEmployeeCategoryId() != null
+                    ? categoryMasterService.getEntityById(req.getEmployeeCategoryId()) : emp.getEmployeeCategory();
+            designationCategoryValidator.validate(newDesignation, newCategory);
+            emp.setDesignation(newDesignation);
+            emp.setEmployeeCategory(newCategory);
+        }
+
+        if (req.getDepartmentId() != null)
+            emp.setDepartment(departmentMasterService.getEntityById(req.getDepartmentId()));
         if (req.getEmploymentType() != null) emp.setEmploymentType(req.getEmploymentType());
-        if (req.getReportingManagerId() != null) emp.setReportingManager(getEmployee(req.getReportingManagerId()));
+        if (req.getReportingManagerId() != null) {
+            Employee newManager = getEmployee(req.getReportingManagerId());
+            validateReportingManager(emp, newManager);
+            emp.setReportingManager(newManager);
+        }
         if (req.getDateOfBirth() != null) emp.setDateOfBirth(req.getDateOfBirth());
         if (req.getGender() != null) emp.setGender(req.getGender());
         if (req.getEmergencyContactName() != null) emp.setEmergencyContactName(req.getEmergencyContactName());
@@ -171,7 +192,9 @@ public class EmployeeServiceImpl implements EmployeeService {
     }
 
     @Override
-    public List<Employee> getActiveEmployees() {
+    public List<Employee> getAttendanceEligibleEmployees() {
+        // Payroll/Attendance/Login eligibility: ACTIVE and ON_NOTICE only (see Javadoc on
+        // the interface method and Employee.EmployeeStatus).
         return employeeRepository.findByStatusIn(
                 List.of(Employee.EmployeeStatus.ACTIVE, Employee.EmployeeStatus.ON_NOTICE));
     }
@@ -181,6 +204,21 @@ public class EmployeeServiceImpl implements EmployeeService {
         if (ids == null || ids.isEmpty()) return java.util.Map.of();
         return employeeRepository.findAllById(ids).stream()
                 .collect(Collectors.toMap(Employee::getId, e -> e));
+    }
+
+    private void validateReportingManager(Employee emp, Employee newManager) {
+        if (emp.getId() != null && emp.getId().equals(newManager.getId())) {
+            throw new BusinessException("INVALID_REPORTING_MANAGER: an employee cannot be their own reporting manager");
+        }
+        java.util.Set<Long> visited = new java.util.HashSet<>();
+        Employee current = newManager;
+        while (current != null && current.getReportingManager() != null) {
+            Long nextId = current.getReportingManager().getId();
+            if (nextId.equals(emp.getId()) || !visited.add(nextId)) {
+                throw new BusinessException("INVALID_REPORTING_MANAGER: this assignment would create a circular reporting chain");
+            }
+            current = current.getReportingManager();
+        }
     }
 
     private EmployeeResponse toResponse(Employee e) {
@@ -195,6 +233,7 @@ public class EmployeeServiceImpl implements EmployeeService {
                 .dateOfBirth(e.getDateOfBirth()).gender(e.getGender() != null ? e.getGender().name() : null)
                 .emergencyContactName(e.getEmergencyContactName()).emergencyContactPhone(e.getEmergencyContactPhone())
                 .joiningDate(e.getJoiningDate())
+                .designation(designation != null ? designation.getName() : null)
                 .designationId(designation != null ? designation.getId() : null)
                 .designationCode(designation != null ? designation.getCode() : null)
                 .designationName(designation != null ? designation.getName() : null)

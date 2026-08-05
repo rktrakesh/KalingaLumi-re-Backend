@@ -26,6 +26,7 @@ public class EmployeeResponse {
 
     // ---- Employment Information ----
     private LocalDate joiningDate;
+    private String designation;
     private Long designationId;
     private String designationCode;
     private String designationName;

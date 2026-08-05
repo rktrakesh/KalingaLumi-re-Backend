@@ -5,7 +5,10 @@ import com.business.erp.auth.dto.response.UserProfileResponse;
 import com.business.erp.auth.entity.User;
 import com.business.erp.auth.repository.UserRepository;
 import com.business.erp.common.exception.BusinessException;
+import com.business.erp.common.exception.ResourceNotFoundException;
 import com.business.erp.common.response.ApiResponse;
+import com.business.erp.employee.entity.Employee;
+import com.business.erp.employee.repository.EmployeeRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -32,6 +35,7 @@ import java.util.stream.Collectors;
 public class UserManagementController {
 
     private final UserRepository userRepository;
+    private final EmployeeRepository employeeRepository;
     private final PasswordEncoder passwordEncoder;
     private final Logger log = LoggerFactory.getLogger(UserManagementController.class);
 
@@ -42,10 +46,16 @@ public class UserManagementController {
         log.info("UserManagementController:createUser :: username={} role={}", req.getUsername(), req.getRole());
         if (userRepository.existsByUsername(req.getUsername()))
             throw new BusinessException("Username already exists: " + req.getUsername());
+
+        Employee employee = req.getEmployeeId() != null
+                ? employeeRepository.findById(req.getEmployeeId())
+                .orElseThrow(() -> new ResourceNotFoundException("Employee", req.getEmployeeId()))
+                : null;
+
         User user = User.builder()
                 .username(req.getUsername()).fullName(req.getFullName())
                 .passwordHash(passwordEncoder.encode(req.getPassword()))
-                .role(req.getRole()).employeeId(req.getEmployeeId())
+                .role(req.getRole()).employee(employee)
                 .status(User.UserStatus.ACTIVE).build();
         user.setCreatedDate(LocalDateTime.now());
         User saved = userRepository.save(user);
@@ -74,8 +84,13 @@ public class UserManagementController {
 
     private UserProfileResponse toProfile(User u) {
         return UserProfileResponse.builder()
-                .id(u.getId()).username(u.getUsername()).fullName(u.getFullName())
-                .role(u.getRole().name()).employeeId(u.getEmployeeId()).status(u.getStatus().name())
+                .id(u.getId())
+                .username(u.getUsername())
+                .fullName(u.getFullName())
+                .role(u.getRole().name())
+                .employeeId(u.getEmployeeId())
+                .status(u.getStatus().name())
+                .mustChangePassword(u.getMustChangePassword())
                 .build();
     }
 }

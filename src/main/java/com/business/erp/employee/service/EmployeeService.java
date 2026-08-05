@@ -29,7 +29,7 @@ public interface EmployeeService {
 
     Employee getEmployee(Long id);
 
-    List<Employee> getActiveEmployees();
+    List<Employee> getAttendanceEligibleEmployees();
 
     /** Batch lookup by ID, keyed by employee ID — avoids N+1 single-row queries in callers like payroll reporting. */
     Map<Long, Employee> getEmployeesByIds(List<Long> ids);
