@@ -25,6 +25,11 @@ public class ReferenceNumberService {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public long nextEmployeeNumber() {
+        return next("seq_employee");
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public String generateLoanReference() {
         return generate("seq_loan", "LOAN-%05d");
     }
@@ -71,10 +76,13 @@ public class ReferenceNumberService {
 
     @SuppressWarnings("unchecked")
     private String generate(String table, String pattern) {
-        Long next = ((Number) em.createNativeQuery("SELECT next_val FROM " + table + " FOR UPDATE")
-                .getSingleResult()).longValue();
+        return String.format(pattern, next(table));
+    }
+
+    private long next(String table) {
+        long next = ((Number) em.createNativeQuery("SELECT next_val FROM " + table + " FOR UPDATE").getSingleResult()).longValue();
         em.createNativeQuery("UPDATE " + table + " SET next_val = next_val + 1").executeUpdate();
-        return String.format(pattern, next);
+        return next;
     }
 
     @SuppressWarnings("unchecked")

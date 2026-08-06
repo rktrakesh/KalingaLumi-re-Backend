@@ -5,6 +5,9 @@ import lombok.*;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import com.business.erp.settings.enums.SettingHistoryEventType;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "app_settings_history")
@@ -19,6 +22,10 @@ public class AppSettingHistory {
     private Long id;
     @Column(name = "setting_key", nullable = false, length = 100)
     private String settingKey;
+    @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(name = "change_type", nullable = false, length = 30)
+    private SettingHistoryEventType changeType;
     @Column(name = "old_value", length = 500)
     private String oldValue;
     @Column(name = "new_value", nullable = false, length = 500)

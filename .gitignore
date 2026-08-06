@@ -1,0 +1,25 @@
+# Maven build and repository-local cache
+/target/
+/.m2-repository/
+*.jar
+*.war
+*.class
+
+# IDE and OS files
+/.idea/
+*.iml
+*.iws
+.DS_Store
+Thumbs.db
+
+# Generated diagnostics and patches
+*.patch
+*-stat.txt
+*-status.txt
+
+# Runtime logs and generated frontend artifacts occasionally produced by local review tools
+logs/
+*.log
+*.log.gz
+dist/
+node_modules/

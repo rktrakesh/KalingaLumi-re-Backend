@@ -26,6 +26,10 @@ public class AppSetting extends AuditableEntity {
     @Column(name = "setting_category", nullable = false, length = 40)
     @JdbcTypeCode(SqlTypes.VARCHAR)
     private SettingCategory settingCategory;
+    @Column(name = "data_type", nullable = false, length = 20)
+    private String dataType;
+    @Column(nullable = false)
+    private boolean editable;
     @Column(name = "setting_value", nullable = false, length = 500)
     private String settingValue;
     @Column(length = 500)

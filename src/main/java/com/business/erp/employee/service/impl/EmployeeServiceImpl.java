@@ -22,6 +22,10 @@ import com.business.erp.employee.service.DesignationMasterService;
 import com.business.erp.employee.service.EmployeeCategoryMasterService;
 import com.business.erp.employee.service.EmployeeService;
 import com.business.erp.employee.validation.DesignationCategoryValidator;
+import com.business.erp.settings.enums.SettingKey;
+import com.business.erp.settings.service.IdentifierTemplateRenderer;
+import com.business.erp.settings.service.IdentifierTemplateContext;
+import com.business.erp.settings.service.SettingsService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,13 +50,20 @@ public class EmployeeServiceImpl implements EmployeeService {
     private final DesignationMasterService designationMasterService;
     private final DepartmentMasterService departmentMasterService;
     private final DesignationCategoryValidator designationCategoryValidator;
+    private final SettingsService settingsService;
     private static final Logger log = LoggerFactory.getLogger(EmployeeServiceImpl.class);
 
     @Override
     @Transactional
     public EmployeeResponse create(CreateEmployeeRequest req, String createdBy) {
         log.info("EmployeeServiceImpl:create :: Creating employee name={} by={}", req.getName(), createdBy);
-        String code = refService.generateEmployeeCode();
+        long joiningSequence = refService.nextEmployeeNumber();
+        IdentifierTemplateContext identifierContext = new IdentifierTemplateContext(
+                settingsService.getCurrentValue(SettingKey.COMPANY_NAME),
+                settingsService.getCurrentValue(SettingKey.COMPANY_SHORT_NAME),
+                req.getName(), joiningSequence, req.getJoiningDate());
+        String code = IdentifierTemplateRenderer.renderEmployeeCode(
+                settingsService.getCurrentValue(SettingKey.EMPLOYEE_CODE_TEMPLATE), identifierContext);
 
         EmployeeCategoryMaster category = categoryMasterService.getEntityById(req.getEmployeeCategoryId());
         DesignationMaster designation = designationMasterService.getEntityById(req.getDesignationId());
@@ -85,7 +96,7 @@ public class EmployeeServiceImpl implements EmployeeService {
         // User Onboarding Service (IAM): Employee Created -> Create User -> Default Role ->
         // Temporary Password -> Welcome Email -> mustChangePassword = true. One employee,
         // one user account, enforced by the unique+FK constraint on users.employee_id.
-        userOnboardingService.onboard(emp, createdBy);
+        userOnboardingService.onboard(emp, joiningSequence, createdBy);
 
         log.info("EmployeeServiceImpl:create :: SUCCESS code={} id={}", code, emp.getId());
         return toResponse(emp);

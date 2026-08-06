@@ -17,3 +17,8 @@ logs/
 # OS files
 .DS_Store
 Thumbs.db
+
+*.patch
+*-stat.txt
+*-status.txt
+.m2-repository/

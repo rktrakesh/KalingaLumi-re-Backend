@@ -7,6 +7,10 @@ import com.business.erp.auth.service.PasswordPolicyService;
 import com.business.erp.auth.service.UserOnboardingService;
 import com.business.erp.auth.util.TemporaryPasswordGenerator;
 import com.business.erp.employee.entity.Employee;
+import com.business.erp.settings.enums.SettingKey;
+import com.business.erp.settings.service.IdentifierTemplateRenderer;
+import com.business.erp.settings.service.IdentifierTemplateContext;
+import com.business.erp.settings.service.SettingsService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,12 +28,13 @@ public class UserOnboardingServiceImpl implements UserOnboardingService {
     private final PasswordEncoder passwordEncoder;
     private final PasswordPolicyService passwordPolicyService;
     private final EmailService emailService;
+    private final SettingsService settingsService;
     private final Logger log = LoggerFactory.getLogger(UserOnboardingServiceImpl.class);
 
     @Override
     @Transactional
-    public User onboard(Employee employee, String actor) {
-        String username = generateUniqueUsername(employee);
+    public User onboard(Employee employee, long joiningSequence, String actor) {
+        String username = generateUniqueUsername(employee, joiningSequence);
         String temporaryPassword = TemporaryPasswordGenerator.generate();
         String encodedPassword = passwordEncoder.encode(temporaryPassword);
 
@@ -59,8 +64,13 @@ public class UserOnboardingServiceImpl implements UserOnboardingService {
         return saved;
     }
 
-    private String generateUniqueUsername(Employee employee) {
-        String base = employee.getEmployeeCode().toLowerCase();
+    private String generateUniqueUsername(Employee employee, long joiningSequence) {
+        IdentifierTemplateContext identifierContext = new IdentifierTemplateContext(
+                settingsService.getCurrentValue(SettingKey.COMPANY_NAME),
+                settingsService.getCurrentValue(SettingKey.COMPANY_SHORT_NAME),
+                employee.getName(), joiningSequence, employee.getJoiningDate());
+        String base = IdentifierTemplateRenderer.renderUsername(
+                settingsService.getCurrentValue(SettingKey.USERNAME_GENERATION_RULE), identifierContext);
         String candidate = base;
         int suffix = 1;
         while (userRepository.existsByUsername(candidate)) {

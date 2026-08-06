@@ -5,5 +5,5 @@ import com.business.erp.employee.entity.Employee;
 
 public interface UserOnboardingService {
 
-    User onboard(Employee employee, String actor);
+    User onboard(Employee employee, long joiningSequence, String actor);
 }
