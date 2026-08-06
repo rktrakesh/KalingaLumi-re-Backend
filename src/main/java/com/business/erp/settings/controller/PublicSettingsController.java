@@ -1,19 +1,14 @@
 package com.business.erp.settings.controller;
-
 import com.business.erp.common.response.ApiResponse;
 import com.business.erp.common.storage.FileStorageService;
 import com.business.erp.settings.enums.SettingKey;
 import com.business.erp.settings.service.SettingsService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import java.util.Map;
 import org.springframework.core.io.Resource;
 import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-
-import java.util.Map;
 
 @RestController
 @RequiredArgsConstructor
