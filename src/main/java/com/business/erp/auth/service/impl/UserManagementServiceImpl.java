@@ -236,6 +236,14 @@ public class UserManagementServiceImpl implements UserManagementService {
                 "Unlinked employee " + employeeId);
     }
 
+    @Override
+    @Transactional
+    public void invalidateSessionsForEmployee(Long employeeId, String actor, String reason) {
+        userRepository.findByEmployee_Id(employeeId).ifPresent(user ->
+                secureChange(user, LoginAuditEventType.EMPLOYEE_ACCESS_REVOKED,
+                        actor, reason));
+    }
+
     private User loadUser(Long userId) {
         return userRepository.findByIdWithEmployee(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", userId));

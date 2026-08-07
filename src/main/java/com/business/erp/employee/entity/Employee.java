@@ -42,6 +42,12 @@ public class Employee extends AuditableEntity {
     @Column(name = "joining_date", nullable = false)
     private LocalDate joiningDate;
 
+    @Column(name = "notice_start_date")
+    private LocalDate noticeStartDate;
+
+    @Column(name = "last_working_date")
+    private LocalDate lastWorkingDate;
+
     @Column(name = "designation", length = 100)
     private String legacyDesignationText;
 

@@ -23,6 +23,41 @@ public class AuthenticatedEmployeeAccessService {
                 Set.of(User.Role.ROLE_ADMIN, User.Role.ROLE_MANAGER));
     }
 
+    public Long requireAdminHrOrEmployeeSelf(UserDetails principal, Long requestedEmployeeId) {
+        if (!(principal instanceof User user)) {
+            throw new AccessDeniedException("Employee identity is unavailable");
+        }
+        if (user.getRoles().stream().anyMatch(role ->
+                role == User.Role.ROLE_ADMIN || role == User.Role.ROLE_HR)) {
+            return requestedEmployeeId;
+        }
+        boolean selfServiceRole = user.getRoles().stream().anyMatch(role ->
+                role == User.Role.ROLE_EMPLOYEE || role == User.Role.ROLE_SALES);
+        if (!selfServiceRole || user.getEmployeeId() == null
+                || !user.getEmployeeId().equals(requestedEmployeeId)) {
+            throw new AccessDeniedException("Access to the requested employee document is denied");
+        }
+        return requestedEmployeeId;
+    }
+
+    public Long requireAdminHrManagerOrSelf(UserDetails principal, Long requestedEmployeeId) {
+        return requireAuthorizedEmployee(principal, requestedEmployeeId,
+                Set.of(User.Role.ROLE_ADMIN, User.Role.ROLE_HR, User.Role.ROLE_MANAGER));
+    }
+
+    public void requireAdminOrHr(UserDetails principal) {
+        if (!(principal instanceof User user)
+                || user.getRoles().stream().noneMatch(role ->
+                role == User.Role.ROLE_ADMIN || role == User.Role.ROLE_HR)) {
+            throw new AccessDeniedException("Employee document management is denied");
+        }
+    }
+
+    public boolean isAdminOrHr(UserDetails principal) {
+        return principal instanceof User user && user.getRoles().stream().anyMatch(role ->
+                role == User.Role.ROLE_ADMIN || role == User.Role.ROLE_HR);
+    }
+
     public Long requireAdminSupervisorOrSelf(UserDetails principal, Long requestedEmployeeId) {
         return requireAuthorizedEmployee(principal, requestedEmployeeId,
                 Set.of(User.Role.ROLE_ADMIN, User.Role.ROLE_SUPERVISOR));

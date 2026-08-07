@@ -47,7 +47,7 @@ public class LeaveServiceImpl implements LeaveService {
     @Transactional
     public LeaveResponse createRequest(LeaveRequestDto req, String createdBy) {
         log.info("LeaveServiceImpl:createRequest :: empId={} date={} by={}", req.getEmployeeId(), req.getLeaveDate(), createdBy);
-        Employee emp = employeeService.getEmployee(req.getEmployeeId());
+        Employee emp = employeeService.getOperationalEmployee(req.getEmployeeId());
         if (holidayService.isHoliday(req.getLeaveDate()))
             throw new BusinessException("Cannot apply leave on a holiday: " + req.getLeaveDate());
         if (leaveRequestRepository.existsByEmployeeIdAndLeaveDateAndStatusIn(

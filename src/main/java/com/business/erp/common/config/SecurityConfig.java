@@ -57,6 +57,10 @@ public class SecurityConfig {
                                 .hasAnyRole("ADMIN", "MANAGER", "SUPERVISOR", "EMPLOYEE", "SALES")
                         .requestMatchers(HttpMethod.GET, "/api/v1/public/branding",
                                 "/api/v1/public/branding/company-logo/*").permitAll()
+                        .requestMatchers("/api/v1/employees/**")
+                                .hasAnyRole("ADMIN", "HR", "MANAGER", "EMPLOYEE", "SALES")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/masters/**")
+                                .hasAnyRole("ADMIN", "HR", "MANAGER", "EMPLOYEE")
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
                         .requestMatchers("/actuator/health").permitAll()
                         .anyRequest().hasAnyRole(

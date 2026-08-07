@@ -49,13 +49,13 @@ public class DesignationMasterController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_MANAGER','ROLE_EMPLOYEE')")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_HR','ROLE_MANAGER','ROLE_EMPLOYEE')")
     public ResponseEntity<ApiResponse<DesignationResponse>> getById(@PathVariable Long id) {
         return ResponseEntity.ok(ApiResponse.ok(service.findById(id)));
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_MANAGER','ROLE_EMPLOYEE')")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_HR','ROLE_MANAGER','ROLE_EMPLOYEE')")
     @Operation(summary = "List designations", description = "Optionally filter by categoryId — used to populate the Employee form's cascading dropdown")
     public ResponseEntity<ApiResponse<List<DesignationResponse>>> findAll(
             @RequestParam(required = false) Long categoryId,

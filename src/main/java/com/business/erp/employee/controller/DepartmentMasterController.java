@@ -51,14 +51,14 @@ public class DepartmentMasterController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_MANAGER','ROLE_EMPLOYEE')")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_HR','ROLE_MANAGER','ROLE_EMPLOYEE')")
     @Operation(summary = "Get department by ID", description = "Retrieves a department by its ID.")
     public ResponseEntity<ApiResponse<MasterDataResponse>> getById(@PathVariable Long id) {
         return ResponseEntity.ok(ApiResponse.ok(service.findById(id)));
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_MANAGER','ROLE_EMPLOYEE')")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_HR','ROLE_MANAGER','ROLE_EMPLOYEE')")
     @Operation(summary = "List departments", description = "Returns a list of all departments.")
     public ResponseEntity<ApiResponse<List<MasterDataResponse>>> findAll(
             @RequestParam(defaultValue = "true") boolean activeOnly) {

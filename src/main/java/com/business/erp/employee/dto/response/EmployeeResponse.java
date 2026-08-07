@@ -6,6 +6,8 @@ import lombok.Data;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
+import com.business.erp.employee.entity.Employee;
 
 @Data
 @Builder
@@ -13,6 +15,7 @@ public class EmployeeResponse {
     private Long id;
     private String employeeCode;
     private String status;
+    private List<Employee.EmployeeStatus> allowedNextStatuses;
 
     // ---- Personal Information ----
     private String name;
@@ -26,6 +29,8 @@ public class EmployeeResponse {
 
     // ---- Employment Information ----
     private LocalDate joiningDate;
+    private LocalDate noticeStartDate;
+    private LocalDate lastWorkingDate;
     private String designation;
     private Long designationId;
     private String designationCode;

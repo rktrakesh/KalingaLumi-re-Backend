@@ -51,13 +51,13 @@ public class EmployeeCategoryMasterController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_MANAGER','ROLE_EMPLOYEE')")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_HR','ROLE_MANAGER','ROLE_EMPLOYEE')")
     public ResponseEntity<ApiResponse<MasterDataResponse>> getById(@PathVariable Long id) {
         return ResponseEntity.ok(ApiResponse.ok(service.findById(id)));
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_MANAGER','ROLE_EMPLOYEE')")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_HR','ROLE_MANAGER','ROLE_EMPLOYEE')")
     @Operation(summary = "List employee categories", description = "activeOnly=true (default) returns only active categories — used to populate dropdowns")
     public ResponseEntity<ApiResponse<List<MasterDataResponse>>> findAll(
             @RequestParam(defaultValue = "true") boolean activeOnly) {

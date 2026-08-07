@@ -9,6 +9,7 @@ import com.business.erp.common.sequence.ReferenceNumberService;
 import com.business.erp.employee.dto.request.CreateEmployeeRequest;
 import com.business.erp.employee.dto.request.UpdateEmployeeRequest;
 import com.business.erp.employee.dto.request.UpdateSalaryRequest;
+import com.business.erp.employee.dto.request.ChangeEmployeeStatusRequest;
 import com.business.erp.employee.dto.response.EmployeeResponse;
 import com.business.erp.employee.dto.response.SalaryHistoryResponse;
 import com.business.erp.employee.entity.DepartmentMaster;
@@ -22,6 +23,7 @@ import com.business.erp.employee.service.DepartmentMasterService;
 import com.business.erp.employee.service.DesignationMasterService;
 import com.business.erp.employee.service.EmployeeCategoryMasterService;
 import com.business.erp.employee.service.EmployeeService;
+import com.business.erp.employee.service.EmployeeLifecycleService;
 import com.business.erp.employee.validation.DesignationCategoryValidator;
 import com.business.erp.settings.enums.SettingKey;
 import com.business.erp.settings.service.IdentifierTemplateRenderer;
@@ -53,6 +55,7 @@ public class EmployeeServiceImpl implements EmployeeService {
     private final DepartmentMasterService departmentMasterService;
     private final DesignationCategoryValidator designationCategoryValidator;
     private final SettingsService settingsService;
+    private final EmployeeLifecycleService employeeLifecycleService;
     private static final Logger log = LoggerFactory.getLogger(EmployeeServiceImpl.class);
 
     @Override
@@ -78,6 +81,13 @@ public class EmployeeServiceImpl implements EmployeeService {
         Employee reportingManager = req.getReportingManagerId() != null
                 ? getEmployee(req.getReportingManagerId()) : null;
 
+        Employee.EmployeeStatus initialStatus = req.getStatus() == null
+                ? Employee.EmployeeStatus.ACTIVE : req.getStatus();
+        if (initialStatus != Employee.EmployeeStatus.ACTIVE
+                && initialStatus != Employee.EmployeeStatus.DRAFT) {
+            throw new BusinessException("A new employee can only be created as DRAFT or ACTIVE");
+        }
+
         Employee emp = Employee.builder()
                 .employeeCode(code).name(req.getName()).phone(req.getPhone())
                 .address(req.getAddress()).email(req.getEmail()).joiningDate(req.getJoiningDate())
@@ -90,7 +100,7 @@ public class EmployeeServiceImpl implements EmployeeService {
                 .panNumber(req.getPanNumber()).bankAccountNumber(req.getBankAccountNumber())
                 .bankIfsc(req.getBankIfsc()).bankName(req.getBankName())
                 .bankAccountHolderName(req.getBankAccountHolderName())
-                .status(Employee.EmployeeStatus.ACTIVE).build();
+                .status(initialStatus).build();
         emp = employeeRepository.save(emp);
         salaryHistoryRepository.save(EmployeeSalaryHistory.builder()
                 .employee(emp).salary(req.getCurrentSalary()).effectiveFrom(req.getJoiningDate())
@@ -184,11 +194,20 @@ public class EmployeeServiceImpl implements EmployeeService {
     @Override
     @Transactional
     public EmployeeResponse deactivate(Long id) {
-        log.info("EmployeeServiceImpl:deactivate :: id={}", id);
-        Employee emp = getEmployee(id);
-        emp.setStatus(Employee.EmployeeStatus.INACTIVE);
-        auditService.log("EMPLOYEE", "DEACTIVATE", "Employee", id);
-        return toResponse(employeeRepository.save(emp));
+        return deactivate(id, "SYSTEM");
+    }
+
+    @Override
+    public EmployeeResponse deactivate(Long id, String actor) {
+        ChangeEmployeeStatusRequest request = new ChangeEmployeeStatusRequest();
+        request.setTargetStatus(Employee.EmployeeStatus.INACTIVE);
+        request.setReason("Deactivated through compatibility endpoint");
+        return changeStatus(id, request, actor);
+    }
+
+    @Override
+    public EmployeeResponse changeStatus(Long id, ChangeEmployeeStatusRequest request, String actor) {
+        return toResponse(employeeLifecycleService.transition(id, request, actor));
     }
 
     @Override
@@ -209,6 +228,17 @@ public class EmployeeServiceImpl implements EmployeeService {
                     log.warn("EmployeeServiceImpl:getEmployee :: NOT FOUND id={}", id);
                     return new ResourceNotFoundException("Employee", id);
                 });
+    }
+
+    @Override
+    public Employee getOperationalEmployee(Long id) {
+        Employee employee = getEmployee(id);
+        if (employee.getStatus() != Employee.EmployeeStatus.ACTIVE
+                && employee.getStatus() != Employee.EmployeeStatus.ON_NOTICE) {
+            throw new BusinessException("Employee status " + employee.getStatus()
+                    + " is not eligible for this operation");
+        }
+        return employee;
     }
 
     @Override
@@ -249,10 +279,12 @@ public class EmployeeServiceImpl implements EmployeeService {
 
         return EmployeeResponse.builder()
                 .id(e.getId()).employeeCode(e.getEmployeeCode()).status(e.getStatus().name())
+                .allowedNextStatuses(employeeLifecycleService.allowedTransitions(e.getStatus()))
                 .name(e.getName()).phone(e.getPhone()).email(e.getEmail()).address(e.getAddress())
                 .dateOfBirth(e.getDateOfBirth()).gender(e.getGender() != null ? e.getGender().name() : null)
                 .emergencyContactName(e.getEmergencyContactName()).emergencyContactPhone(e.getEmergencyContactPhone())
                 .joiningDate(e.getJoiningDate())
+                .noticeStartDate(e.getNoticeStartDate()).lastWorkingDate(e.getLastWorkingDate())
                 .designation(designation != null ? designation.getName() : null)
                 .designationId(designation != null ? designation.getId() : null)
                 .designationCode(designation != null ? designation.getCode() : null)

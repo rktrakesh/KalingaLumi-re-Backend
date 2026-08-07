@@ -6,6 +6,7 @@ import com.business.erp.common.response.PageResponse;
 import com.business.erp.employee.dto.request.CreateEmployeeRequest;
 import com.business.erp.employee.dto.request.UpdateEmployeeRequest;
 import com.business.erp.employee.dto.request.UpdateSalaryRequest;
+import com.business.erp.employee.dto.request.ChangeEmployeeStatusRequest;
 import com.business.erp.employee.dto.response.EmployeeResponse;
 import com.business.erp.employee.dto.response.SalaryHistoryResponse;
 import com.business.erp.employee.entity.Employee;
@@ -40,7 +41,7 @@ public class EmployeeController {
     private final Logger log = LoggerFactory.getLogger(EmployeeController.class);
 
     @PostMapping
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_HR')")
     @Operation(summary = "Create employee", description = "Register a new employee with initial salary record")
     public ResponseEntity<ApiResponse<EmployeeResponse>> create(
             @Valid @RequestBody CreateEmployeeRequest request,
@@ -51,7 +52,7 @@ public class EmployeeController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_MANAGER')")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_HR','ROLE_MANAGER')")
     @Operation(summary = "List employees", description = "Paginated search with optional status and name/code filter")
     public ResponseEntity<ApiResponse<PageResponse<EmployeeResponse>>> getAll(
             @RequestParam(required = false) Employee.EmployeeStatus status,
@@ -63,12 +64,12 @@ public class EmployeeController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_MANAGER','ROLE_EMPLOYEE')")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_HR','ROLE_MANAGER','ROLE_EMPLOYEE','ROLE_SALES')")
     @Operation(summary = "Get employee by ID")
     public ResponseEntity<ApiResponse<EmployeeResponse>> getById(
             @PathVariable Long id,
             @AuthenticationPrincipal UserDetails user) {
-        Long authorizedEmployeeId = employeeAccessService.requireAdminManagerOrSelf(user, id);
+        Long authorizedEmployeeId = employeeAccessService.requireAdminHrManagerOrSelf(user, id);
         log.debug("EmployeeController:getById :: id={}", id);
         return ResponseEntity.ok(ApiResponse.ok(employeeService.findById(authorizedEmployeeId)));
     }
@@ -105,10 +106,23 @@ public class EmployeeController {
     }
 
     @PutMapping("/{id}/deactivate")
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_HR')")
     @Operation(summary = "Deactivate employee", description = "Soft-deactivate an employee — all data is retained")
-    public ResponseEntity<ApiResponse<EmployeeResponse>> deactivate(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<EmployeeResponse>> deactivate(
+            @PathVariable Long id, @AuthenticationPrincipal UserDetails user) {
         log.info("EmployeeController:deactivate :: id={}", id);
-        return ResponseEntity.ok(ApiResponse.ok(employeeService.deactivate(id), "Employee deactivated"));
+        return ResponseEntity.ok(ApiResponse.ok(
+                employeeService.deactivate(id, user.getUsername()), "Employee deactivated"));
+    }
+
+    @PutMapping("/{id}/lifecycle")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_HR')")
+    @Operation(summary = "Change employee lifecycle status", description = "Apply a validated employee lifecycle transition")
+    public ResponseEntity<ApiResponse<EmployeeResponse>> changeStatus(
+            @PathVariable Long id, @Valid @RequestBody ChangeEmployeeStatusRequest request,
+            @AuthenticationPrincipal UserDetails user) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                employeeService.changeStatus(id, request, user.getUsername()),
+                "Employee status changed to " + request.getTargetStatus()));
     }
 }

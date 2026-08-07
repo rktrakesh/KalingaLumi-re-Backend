@@ -43,6 +43,11 @@ spring:
           starttls:
             enable: true
 
+  servlet:
+    multipart:
+      max-file-size: ${MULTIPART_MAX_FILE_SIZE:5MB}
+      max-request-size: ${MULTIPART_MAX_REQUEST_SIZE:6MB}
+
 
   flyway:
     enabled: true
@@ -68,6 +73,19 @@ server:
     mime-types: application/json,text/html,text/plain
 
 app:
+  storage:
+    provider: ${STORAGE_PROVIDER:local}
+    path: ${STORAGE_PATH:uploads}
+    max-logo-bytes: ${MAX_LOGO_BYTES:2097152}
+    employee-documents:
+      profile-photo-max-size: ${EMPLOYEE_PROFILE_PHOTO_MAX_SIZE:200KB}
+      pan-max-size: ${EMPLOYEE_PAN_MAX_SIZE:1MB}
+      identity-proof-max-size: ${EMPLOYEE_IDENTITY_PROOF_MAX_SIZE:2MB}
+      bank-proof-max-size: ${EMPLOYEE_BANK_PROOF_MAX_SIZE:5MB}
+      certificate-max-size: ${EMPLOYEE_CERTIFICATE_MAX_SIZE:2MB}
+      driving-license-max-size: ${EMPLOYEE_DRIVING_LICENSE_MAX_SIZE:1MB}
+      appointment-letter-max-size: ${EMPLOYEE_APPOINTMENT_LETTER_MAX_SIZE:2MB}
+      salary-slip-acknowledgement-max-size: ${EMPLOYEE_SALARY_SLIP_ACK_MAX_SIZE:2MB}
   jwt:
     secret: ${JWT_SECRET}
     expiration: ${JWT_EXPIRATION}

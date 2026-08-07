@@ -2,6 +2,7 @@ package com.business.erp.employee.dto.request;
 
 import com.business.erp.employee.enums.EmploymentType;
 import com.business.erp.employee.enums.Gender;
+import com.business.erp.employee.entity.Employee;
 import jakarta.validation.constraints.*;
 import lombok.Data;
 
@@ -12,6 +13,8 @@ import java.time.LocalDate;
 public class CreateEmployeeRequest {
     /** Null preserves legacy API behavior: a login is created. New clients send an explicit choice. */
     private Boolean createLogin;
+    /** Null preserves the legacy API behavior of creating an ACTIVE employee. */
+    private Employee.EmployeeStatus status;
     @NotBlank
     @Size(max = 100)
     private String name;

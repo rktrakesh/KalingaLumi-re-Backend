@@ -60,7 +60,7 @@ public class LoanServiceImpl implements LoanService {
 
         EmployeeLoan loan = loanRepository.save(EmployeeLoan.builder()
                 .loanReference(refService.generateLoanReference())
-                .employee(employeeService.getEmployee(req.getEmployeeId()))
+                .employee(employeeService.getOperationalEmployee(req.getEmployeeId()))
                 .principalAmount(req.getPrincipalAmount())
                 .interestRate(req.getInterestRate())
                 .monthlyInterest(monthlyInterest)

@@ -29,4 +29,6 @@ public interface UserManagementService {
     User linkEmployee(Long userId, Long employeeId, String actor);
 
     User unlinkEmployee(Long userId, String actor);
+
+    void invalidateSessionsForEmployee(Long employeeId, String actor, String reason);
 }

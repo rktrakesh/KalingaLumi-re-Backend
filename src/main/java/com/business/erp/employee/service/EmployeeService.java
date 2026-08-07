@@ -3,6 +3,7 @@ package com.business.erp.employee.service;
 import com.business.erp.employee.dto.request.CreateEmployeeRequest;
 import com.business.erp.employee.dto.request.UpdateEmployeeRequest;
 import com.business.erp.employee.dto.request.UpdateSalaryRequest;
+import com.business.erp.employee.dto.request.ChangeEmployeeStatusRequest;
 import com.business.erp.employee.dto.response.EmployeeResponse;
 import com.business.erp.employee.dto.response.SalaryHistoryResponse;
 import com.business.erp.employee.entity.Employee;
@@ -25,9 +26,15 @@ public interface EmployeeService {
 
     EmployeeResponse deactivate(Long id);
 
+    EmployeeResponse deactivate(Long id, String actor);
+
+    EmployeeResponse changeStatus(Long id, ChangeEmployeeStatusRequest request, String actor);
+
     List<SalaryHistoryResponse> getSalaryHistory(Long id);
 
     Employee getEmployee(Long id);
+
+    Employee getOperationalEmployee(Long id);
 
     List<Employee> getAttendanceEligibleEmployees();
 
