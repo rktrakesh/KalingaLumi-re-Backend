@@ -1,5 +1,6 @@
 package com.business.erp.payroll.engine.period;
 
+import com.business.erp.common.clock.ClockProvider;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -9,10 +10,20 @@ import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class PayrollPeriodTest {
 
-    private final PayrollPeriodFactory factory = new PayrollPeriodFactory(() -> LocalDate.of(2026, 6, 15));
+    // Helper method to safely mock the updated ClockProvider
+    private static ClockProvider createFixedClock(LocalDate date) {
+        ClockProvider clock = mock(ClockProvider.class);
+        when(clock.today()).thenReturn(date);
+        return clock;
+    }
+
+    // Replaced the lambda with our new helper method
+    private final PayrollPeriodFactory factory = new PayrollPeriodFactory(createFixedClock(LocalDate.of(2026, 6, 15)));
 
     @Nested
     class MonthLengths {
@@ -36,7 +47,8 @@ class PayrollPeriodTest {
     @Nested
     class BoundaryComparisons {
 
-        private final PayrollPeriod june2026 = new PayrollPeriodFactory(() -> LocalDate.of(2026, 1, 1)).of(6, 2026);
+        // Replaced the lambda with our new helper method
+        private final PayrollPeriod june2026 = new PayrollPeriodFactory(createFixedClock(LocalDate.of(2026, 1, 1))).of(6, 2026);
 
         @Test
         void hasEnded_isFalse_onTheLastDayOfThePeriod() {
