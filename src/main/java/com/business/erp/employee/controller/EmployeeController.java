@@ -1,5 +1,6 @@
 package com.business.erp.employee.controller;
 
+import com.business.erp.auth.service.AuthenticatedEmployeeAccessService;
 import com.business.erp.common.response.ApiResponse;
 import com.business.erp.common.response.PageResponse;
 import com.business.erp.employee.dto.request.CreateEmployeeRequest;
@@ -35,6 +36,7 @@ import java.util.List;
 public class EmployeeController {
 
     private final EmployeeService employeeService;
+    private final AuthenticatedEmployeeAccessService employeeAccessService;
     private final Logger log = LoggerFactory.getLogger(EmployeeController.class);
 
     @PostMapping
@@ -63,9 +65,12 @@ public class EmployeeController {
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_MANAGER','ROLE_EMPLOYEE')")
     @Operation(summary = "Get employee by ID")
-    public ResponseEntity<ApiResponse<EmployeeResponse>> getById(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<EmployeeResponse>> getById(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetails user) {
+        Long authorizedEmployeeId = employeeAccessService.requireAdminManagerOrSelf(user, id);
         log.debug("EmployeeController:getById :: id={}", id);
-        return ResponseEntity.ok(ApiResponse.ok(employeeService.findById(id)));
+        return ResponseEntity.ok(ApiResponse.ok(employeeService.findById(authorizedEmployeeId)));
     }
 
     @PutMapping("/{id}")
@@ -91,9 +96,12 @@ public class EmployeeController {
     @GetMapping("/{id}/salary-history")
     @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_EMPLOYEE')")
     @Operation(summary = "Get salary history", description = "View full salary change history for an employee")
-    public ResponseEntity<ApiResponse<List<SalaryHistoryResponse>>> getSalaryHistory(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<List<SalaryHistoryResponse>>> getSalaryHistory(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetails user) {
+        Long authorizedEmployeeId = employeeAccessService.requireAdminOrSelf(user, id);
         log.debug("EmployeeController:getSalaryHistory :: id={}", id);
-        return ResponseEntity.ok(ApiResponse.ok(employeeService.getSalaryHistory(id)));
+        return ResponseEntity.ok(ApiResponse.ok(employeeService.getSalaryHistory(authorizedEmployeeId)));
     }
 
     @PutMapping("/{id}/deactivate")

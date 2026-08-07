@@ -66,22 +66,26 @@ public class DesignationMasterServiceImpl implements DesignationMasterService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public DesignationResponse findById(Long id) {
         return toResponse(getEntityById(id));
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<DesignationResponse> findAll(boolean activeOnly) {
         List<DesignationMaster> list = activeOnly ? repository.findByActiveTrue() : repository.findAll();
         return list.stream().map(this::toResponse).toList();
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<DesignationResponse> findByCategory(Long categoryId) {
         return repository.findByCategoryIdAndActiveTrue(categoryId).stream().map(this::toResponse).toList();
     }
 
     @Override
+    @Transactional(readOnly = true)
     public DesignationMaster getEntityById(Long id) {
         return repository.findById(id).orElseThrow(() -> new ResourceNotFoundException("DesignationMaster", id));
     }

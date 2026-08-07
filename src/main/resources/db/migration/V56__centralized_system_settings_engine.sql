@@ -62,7 +62,7 @@ FROM (
     UNION ALL SELECT 'EMPLOYEE_CODE_TEMPLATE', 'EMPLOYEE_HR', 'STRING', TRUE,
                      '{CompanyShortName}{FirstName4}{EmployeeNumber}', 'Template for new employee codes'
     UNION ALL SELECT 'USERNAME_GENERATION_RULE', 'EMPLOYEE_HR', 'STRING', TRUE,
-                     '{CompanyShortName}_{FirstName}_{EmployeeNumber}', 'Template for new usernames'
+                     '{CompanyShortName}*{FirstName}*{EmployeeNumber}', 'Template for new usernames'
     UNION ALL SELECT 'EMPLOYEE_CODE_PREFIX', 'EMPLOYEE_HR', 'STRING', FALSE, '',
                      'Legacy employee-code prefix metadata; not used for new employee generation'
 ) defaults

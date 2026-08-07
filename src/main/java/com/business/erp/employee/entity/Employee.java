@@ -24,7 +24,7 @@ public class Employee extends AuditableEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "employee_code", nullable = false, unique = true, length = 20)
+    @Column(name = "employee_code", nullable = false, unique = true, length = 20, updatable = false)
     private String employeeCode;
 
     @Column(nullable = false, length = 100)
@@ -105,4 +105,12 @@ public class Employee extends AuditableEntity {
     private EmployeeStatus status = EmployeeStatus.ACTIVE;
 
     public enum EmployeeStatus {DRAFT, ACTIVE, ON_NOTICE, RESIGNED, INACTIVE}
+
+    @PrePersist
+    @PreUpdate
+    private void sanitizeData() {
+        if (this.employeeCode != null) {
+            this.employeeCode = this.employeeCode.trim();
+        }
+    }
 }

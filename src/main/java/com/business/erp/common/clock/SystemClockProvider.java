@@ -5,6 +5,7 @@ import org.springframework.stereotype.Component;
 
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 /**
  * Production {@link ClockProvider}, backed by the {@link Clock} bean defined in
@@ -20,5 +21,10 @@ public class SystemClockProvider implements ClockProvider {
     @Override
     public LocalDate today() {
         return LocalDate.now(clock);
+    }
+
+    @Override
+    public LocalDateTime now() {
+        return LocalDateTime.now(clock);
     }
 }

@@ -41,7 +41,11 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             String username = jwtService.extractUsername(jwt);
             if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 UserDetails user = userDetailsService.loadUserByUsername(username);
-                if (jwtService.isTokenValid(jwt, user)) {
+                boolean passwordChangeRequest = isPasswordChangeRequest(request.getRequestURI());
+                boolean tokenValid = passwordChangeRequest
+                        ? jwtService.isTokenValidForPasswordChange(jwt, user)
+                        : jwtService.isTokenValid(jwt, user);
+                if (tokenValid) {
                     var authToken = new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authToken);
@@ -67,9 +71,16 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     }
 
     private boolean isAllowedWhileMustChangePassword(String uri) {
-        return uri.startsWith("/api/v1/auth/change-password")
+        return uri.startsWith("/api/v1/auth/login")
+                || uri.startsWith("/api/v1/auth/forgot-password")
+                || uri.startsWith("/api/v1/auth/reset-password")
+                || uri.startsWith("/api/v1/auth/change-password")
                 || uri.startsWith("/api/v1/auth/logout")
                 || uri.startsWith("/api/v1/auth/me")
                 || uri.startsWith("/api/v1/auth/refresh");
+    }
+
+    private boolean isPasswordChangeRequest(String uri) {
+        return "/api/v1/auth/change-password".equals(uri);
     }
 }

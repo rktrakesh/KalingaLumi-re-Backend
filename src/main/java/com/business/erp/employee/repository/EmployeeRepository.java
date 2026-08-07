@@ -17,6 +17,8 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
 
     Optional<Employee> findByEmail(String email);
 
+    List<Employee> findAllByEmployeeCodeIgnoreCase(String employeeCode);
+
     @Query("SELECT e FROM Employee e WHERE (:status IS NULL OR e.status = :status) AND " +
             "(:search IS NULL OR LOWER(e.name) LIKE LOWER(CONCAT('%',:search,'%')) " +
             "OR LOWER(e.employeeCode) LIKE LOWER(CONCAT('%',:search,'%')))")

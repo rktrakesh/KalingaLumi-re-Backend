@@ -64,11 +64,12 @@ public class AuthController {
     @PutMapping("/change-password")
     @SecurityRequirement(name = "bearerAuth")
     @Operation(summary = "Change password", description = "Change password for the currently authenticated user")
-    public ResponseEntity<ApiResponse<Void>> changePassword(@AuthenticationPrincipal UserDetails user,
-                                                            @Valid @RequestBody ChangePasswordRequest request) {
+    public ResponseEntity<ApiResponse<TokenResponse>> changePassword(@AuthenticationPrincipal UserDetails user,
+                                                                     @Valid @RequestBody ChangePasswordRequest request) {
         log.info("AuthController:changePassword :: username={}", user.getUsername());
-        authService.changePassword(user.getUsername(), request);
-        return ResponseEntity.ok(ApiResponse.ok("Password changed successfully"));
+        return ResponseEntity.ok(ApiResponse.ok(
+                authService.changePassword(user.getUsername(), request),
+                "Password changed successfully"));
     }
 
     @PostMapping("/forgot-password")

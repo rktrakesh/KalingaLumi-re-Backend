@@ -1,5 +1,6 @@
 package com.business.erp.payroll.controller;
 
+import com.business.erp.auth.service.AuthenticatedEmployeeAccessService;
 import com.business.erp.common.response.ApiResponse;
 import com.business.erp.payroll.dto.request.*;
 import com.business.erp.payroll.dto.response.*;
@@ -27,6 +28,7 @@ import java.util.List;
 public class PayrollController {
 
     private final PayrollService payrollService;
+    private final AuthenticatedEmployeeAccessService employeeAccessService;
     private final Logger log = LoggerFactory.getLogger(PayrollController.class);
 
     // ── Lifecycle ────────────────────────────────────────────────────────
@@ -154,8 +156,13 @@ public class PayrollController {
     @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_EMPLOYEE')")
     @Operation(summary = "Get employee payslip", description = "Fetch individual payslip for a specific month (current version)")
     public ResponseEntity<ApiResponse<PayrollDetailResponse>> getPayslip(
-            @PathVariable Long empId, @RequestParam int year, @RequestParam int month) {
-        return ResponseEntity.ok(ApiResponse.ok(payrollService.getEmployeePayslip(empId, year, month)));
+            @PathVariable Long empId,
+            @RequestParam int year,
+            @RequestParam int month,
+            @AuthenticationPrincipal UserDetails user) {
+        Long authorizedEmployeeId = employeeAccessService.requireAdminOrSelf(user, empId);
+        return ResponseEntity.ok(ApiResponse.ok(
+                payrollService.getEmployeePayslip(authorizedEmployeeId, year, month)));
     }
 
     @GetMapping("/{runId}/calculation-logs")
@@ -168,8 +175,12 @@ public class PayrollController {
     @GetMapping("/employee/{empId}/calculation-history")
     @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_EMPLOYEE')")
     @Operation(summary = "Employee calculation history", description = "Every calculation ever run for this employee, across all periods and versions")
-    public ResponseEntity<ApiResponse<List<PayrollCalculationLogResponse>>> getEmployeeCalculationHistory(@PathVariable Long empId) {
-        return ResponseEntity.ok(ApiResponse.ok(payrollService.getEmployeeCalculationHistory(empId)));
+    public ResponseEntity<ApiResponse<List<PayrollCalculationLogResponse>>> getEmployeeCalculationHistory(
+            @PathVariable Long empId,
+            @AuthenticationPrincipal UserDetails user) {
+        Long authorizedEmployeeId = employeeAccessService.requireAdminOrSelf(user, empId);
+        return ResponseEntity.ok(ApiResponse.ok(
+                payrollService.getEmployeeCalculationHistory(authorizedEmployeeId)));
     }
 
     @GetMapping("/{runId}/dashboard")

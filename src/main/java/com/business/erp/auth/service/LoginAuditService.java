@@ -5,5 +5,10 @@ import com.business.erp.auth.enums.LoginAuditEventType;
 
 public interface LoginAuditService {
 
-    void record(User user, String username, LoginAuditEventType eventType, String remarks);
+    default void record(User user, String username, LoginAuditEventType eventType, String remarks) {
+        record(user, username, username, eventType, remarks);
+    }
+
+    void record(User targetUser, String targetUsername, String actorUsername,
+                LoginAuditEventType eventType, String remarks);
 }

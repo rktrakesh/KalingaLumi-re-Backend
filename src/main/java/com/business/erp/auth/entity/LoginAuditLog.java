@@ -28,6 +28,9 @@ public class LoginAuditLog {
     @Column(nullable = false, length = 50)
     private String username;
 
+    @Column(name = "actor_username", length = 50)
+    private String actorUsername;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "event_type", nullable = false, length = 30)
     @JdbcTypeCode(SqlTypes.VARCHAR)
@@ -38,6 +41,9 @@ public class LoginAuditLog {
 
     @Column(name = "ip_address", length = 45)
     private String ipAddress;
+
+    @Column(name = "user_agent", length = 500)
+    private String userAgent;
 
     @Column(length = 255)
     private String device;

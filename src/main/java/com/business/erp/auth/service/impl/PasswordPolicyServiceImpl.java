@@ -4,6 +4,7 @@ import com.business.erp.auth.entity.PasswordHistory;
 import com.business.erp.auth.entity.User;
 import com.business.erp.auth.repository.PasswordHistoryRepository;
 import com.business.erp.auth.service.PasswordPolicyService;
+import com.business.erp.common.clock.ClockProvider;
 import com.business.erp.common.exception.BusinessException;
 import com.business.erp.settings.enums.SettingKey;
 import com.business.erp.settings.service.SettingsService;
@@ -14,7 +15,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.regex.Pattern;
 
@@ -27,6 +27,7 @@ public class PasswordPolicyServiceImpl implements PasswordPolicyService {
     private final PasswordHistoryRepository passwordHistoryRepository;
     private final PasswordEncoder passwordEncoder;
     private final SettingsService settingsService;
+    private final ClockProvider clockProvider;
     private final Logger log = LoggerFactory.getLogger(PasswordPolicyServiceImpl.class);
 
     @Override
@@ -70,7 +71,7 @@ public class PasswordPolicyServiceImpl implements PasswordPolicyService {
     @Transactional
     public void recordPasswordChange(User user, String newPasswordHash) {
         passwordHistoryRepository.save(PasswordHistory.builder()
-                .user(user).passwordHash(newPasswordHash).createdDate(LocalDateTime.now())
+                .user(user).passwordHash(newPasswordHash).createdDate(clockProvider.now())
                 .build());
         log.info("PasswordPolicyServiceImpl:recordPasswordChange :: userId={}", user.getId());
     }

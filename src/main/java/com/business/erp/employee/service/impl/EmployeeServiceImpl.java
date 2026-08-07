@@ -1,6 +1,7 @@
 package com.business.erp.employee.service.impl;
 
 import com.business.erp.auth.service.UserOnboardingService;
+import com.business.erp.auth.service.LoginIdentifierService;
 import com.business.erp.common.audit.AuditService;
 import com.business.erp.common.exception.BusinessException;
 import com.business.erp.common.exception.ResourceNotFoundException;
@@ -46,6 +47,7 @@ public class EmployeeServiceImpl implements EmployeeService {
     private final ReferenceNumberService refService;
     private final AuditService auditService;
     private final UserOnboardingService userOnboardingService;
+    private final LoginIdentifierService loginIdentifierService;
     private final EmployeeCategoryMasterService categoryMasterService;
     private final DesignationMasterService designationMasterService;
     private final DepartmentMasterService departmentMasterService;
@@ -62,8 +64,11 @@ public class EmployeeServiceImpl implements EmployeeService {
                 settingsService.getCurrentValue(SettingKey.COMPANY_NAME),
                 settingsService.getCurrentValue(SettingKey.COMPANY_SHORT_NAME),
                 req.getName(), joiningSequence, req.getJoiningDate());
-        String code = IdentifierTemplateRenderer.renderEmployeeCode(
-                settingsService.getCurrentValue(SettingKey.EMPLOYEE_CODE_TEMPLATE), identifierContext);
+        String code = loginIdentifierService.normalizeEmployeeCode(
+                IdentifierTemplateRenderer.renderEmployeeCode(
+                        settingsService.getCurrentValue(SettingKey.EMPLOYEE_CODE_TEMPLATE),
+                        identifierContext));
+        loginIdentifierService.validateEmployeeCodeAvailable(code, null);
 
         EmployeeCategoryMaster category = categoryMasterService.getEntityById(req.getEmployeeCategoryId());
         DesignationMaster designation = designationMasterService.getEntityById(req.getDesignationId());
@@ -96,7 +101,9 @@ public class EmployeeServiceImpl implements EmployeeService {
         // User Onboarding Service (IAM): Employee Created -> Create User -> Default Role ->
         // Temporary Password -> Welcome Email -> mustChangePassword = true. One employee,
         // one user account, enforced by the unique+FK constraint on users.employee_id.
-        userOnboardingService.onboard(emp, joiningSequence, createdBy);
+        if (req.getCreateLogin() == null || Boolean.TRUE.equals(req.getCreateLogin())) {
+            userOnboardingService.onboard(emp, joiningSequence, createdBy);
+        }
 
         log.info("EmployeeServiceImpl:create :: SUCCESS code={} id={}", code, emp.getId());
         return toResponse(emp);

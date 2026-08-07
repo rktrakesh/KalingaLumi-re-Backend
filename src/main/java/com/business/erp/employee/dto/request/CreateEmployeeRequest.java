@@ -10,6 +10,8 @@ import java.time.LocalDate;
 
 @Data
 public class CreateEmployeeRequest {
+    /** Null preserves legacy API behavior: a login is created. New clients send an explicit choice. */
+    private Boolean createLogin;
     @NotBlank
     @Size(max = 100)
     private String name;

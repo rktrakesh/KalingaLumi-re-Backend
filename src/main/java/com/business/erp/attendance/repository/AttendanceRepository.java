@@ -19,9 +19,13 @@ public interface AttendanceRepository extends JpaRepository<AttendanceRecord, Lo
 
     List<AttendanceRecord> findByStatus(AttendanceRecord.AttendanceStatus status);
 
-    List<AttendanceRecord> findByEmployeeIdAndAttendanceDateBetweenOrderByAttendanceDateAsc(Long empId, LocalDate from, LocalDate to);
+    @Query("SELECT a FROM AttendanceRecord a WHERE a.employee.id = :empId " +
+            "AND a.attendanceDate BETWEEN :from AND :to " +
+            "AND a.attendanceDate >= a.employee.joiningDate ORDER BY a.attendanceDate ASC")
+    List<AttendanceRecord> findByEmployeeIdAndAttendanceDateBetweenOrderByAttendanceDateAsc(
+            @Param("empId") Long empId, @Param("from") LocalDate from, @Param("to") LocalDate to);
 
-    @Query("SELECT a FROM AttendanceRecord a WHERE " +
+    @Query("SELECT a FROM AttendanceRecord a WHERE a.attendanceDate >= a.employee.joiningDate AND " +
             "(:employeeId IS NULL OR a.employee.id = :employeeId) AND " +
             "(:date IS NULL OR a.attendanceDate = :date) AND " +
             "(:status IS NULL OR a.status = :status) AND " +
@@ -43,7 +47,11 @@ public interface AttendanceRepository extends JpaRepository<AttendanceRecord, Lo
     Integer sumWorkedMinutesByEmployeeAndMonth(@Param("empId") Long empId,
                                                @Param("from") LocalDate from, @Param("to") LocalDate to);
 
-    List<AttendanceRecord> findByEmployeeIdAndAttendanceDateBetween(Long empId, LocalDate from, LocalDate to);
+    @Query("SELECT a FROM AttendanceRecord a WHERE a.employee.id = :empId " +
+            "AND a.attendanceDate BETWEEN :from AND :to " +
+            "AND a.attendanceDate >= a.employee.joiningDate")
+    List<AttendanceRecord> findByEmployeeIdAndAttendanceDateBetween(
+            @Param("empId") Long empId, @Param("from") LocalDate from, @Param("to") LocalDate to);
 
     List<AttendanceRecord> findByAttendanceDateBetween(LocalDate from, LocalDate to);
 

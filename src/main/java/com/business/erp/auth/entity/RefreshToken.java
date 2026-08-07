@@ -2,8 +2,6 @@ package com.business.erp.auth.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-import lombok.experimental.SuperBuilder;
-
 import java.time.LocalDateTime;
 
 @Entity
@@ -36,12 +34,4 @@ public class RefreshToken {
     @Column(name = "created_date", nullable = false)
     private LocalDateTime createdDate;
 
-    @PrePersist
-    public void prePersist() {
-        if (createdDate == null) createdDate = LocalDateTime.now();
-    }
-
-    public boolean isExpired() {
-        return LocalDateTime.now().isAfter(expiresAt);
-    }
 }

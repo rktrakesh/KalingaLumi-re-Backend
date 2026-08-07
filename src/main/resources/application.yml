@@ -74,6 +74,8 @@ app:
     refresh-expiration: ${JWT_REFRESH_EXPIRATION}
   cors:
     allowed-origins: ${CORS_ORIGINS}
+  security:
+    trust-proxy-headers: ${TRUST_PROXY_HEADERS:false}
   timezone: Asia/Kolkata
   mail:
     from: ${MAIL_FROM}

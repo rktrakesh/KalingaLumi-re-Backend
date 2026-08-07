@@ -11,6 +11,7 @@ import com.business.erp.auth.enums.LoginAuditEventType;
 import com.business.erp.auth.repository.PasswordResetTokenRepository;
 import com.business.erp.auth.repository.UserRepository;
 import com.business.erp.auth.service.*;
+import com.business.erp.common.clock.ClockProvider;
 import com.business.erp.common.exception.BusinessException;
 import com.business.erp.common.exception.ResourceNotFoundException;
 import com.business.erp.employee.entity.Employee;
@@ -23,6 +24,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.CredentialsExpiredException;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.LockedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -31,8 +33,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.Optional;
+import java.util.LinkedHashSet;
+import java.util.stream.Collectors;
 import java.util.UUID;
 
 /**
@@ -58,39 +61,59 @@ public class AuthServiceImpl implements AuthService {
     private final LoginAuditService loginAuditService;
     private final EmailService emailService;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
+    private final LoginIdentifierService loginIdentifierService;
+    private final ClockProvider clockProvider;
     private final Logger log = LoggerFactory.getLogger(AuthServiceImpl.class);
 
     @Value("${app.frontend.reset-password-url:http://localhost:9999/reset-password}")
     private String resetPasswordUrlBase;
 
     @Override
-    @Transactional
+    @Transactional(noRollbackFor = {
+            BadCredentialsException.class,
+            LockedException.class,
+            DisabledException.class,
+            CredentialsExpiredException.class,
+            BusinessException.class
+    })
     public TokenResponse login(LoginRequest request) {
-        log.info("AuthServiceImpl:login :: Attempting login for username={}", request.getUsername());
+        log.info("AuthServiceImpl:login :: Attempting login");
         Authentication authResult;
         try {
             authResult = authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword()));
+                    new UsernamePasswordAuthenticationToken(
+                            request.getUsername().trim(), request.getPassword()));
         } catch (BadCredentialsException ex) {
             recordFailedAttempt(request.getUsername());
-            throw ex;
+            throw new BadCredentialsException("Invalid credentials");
         } catch (LockedException ex) {
-            loginAuditService.record(userRepository.findByUsername(request.getUsername()).orElse(null),
-                    request.getUsername(), LoginAuditEventType.LOGIN_FAILURE, "Account is locked");
-            throw ex;
+            auditLoginFailure(request.getUsername(), "Account is locked");
+            throw new BadCredentialsException("Invalid credentials");
         } catch (DisabledException ex) {
-            loginAuditService.record(userRepository.findByUsername(request.getUsername()).orElse(null),
-                    request.getUsername(), LoginAuditEventType.LOGIN_FAILURE,
-                    "Account disabled or employee not login-eligible");
-            throw ex;
+            auditLoginFailure(request.getUsername(), "Account is not login-eligible");
+            throw new BadCredentialsException("Invalid credentials");
+        } catch (CredentialsExpiredException ex) {
+            auditLoginFailure(request.getUsername(), "Credentials have expired");
+            throw new BadCredentialsException("Invalid credentials");
         }
 
         User user = (User) authResult.getPrincipal();
 
+        if (Boolean.TRUE.equals(user.getMustChangePassword()) && user.getTemporaryPasswordExpiresAt() != null
+                && !user.getTemporaryPasswordExpiresAt().isAfter(clockProvider.now())) {
+            user.setCredentialsExpired(true);
+            invalidateTokens(user, user.getUsername());
+            userRepository.save(user);
+            loginAuditService.record(user, user.getUsername(), LoginAuditEventType.LOGIN_FAILURE,
+                    "Temporary password expired");
+            throw new BusinessException("TEMPORARY_PASSWORD_EXPIRED: use Forgot Password to set a new password");
+        }
+
         if (user.getFailedLoginAttempts() != null && user.getFailedLoginAttempts() != 0) {
             user.setFailedLoginAttempts(0);
-            userRepository.save(user);
         }
+        user.setLastLoginAt(clockProvider.now());
+        userRepository.save(user);
         loginAuditService.record(user, user.getUsername(), LoginAuditEventType.LOGIN_SUCCESS, null);
 
         String accessToken = jwtService.generateToken(user);
@@ -101,10 +124,11 @@ public class AuthServiceImpl implements AuthService {
 
     /** Increments the failed-attempt counter and auto-locks once MAX_FAILED_LOGIN_ATTEMPTS
      *  is reached — the account-lock policy from the spec, fully configurable via Settings. */
-    private void recordFailedAttempt(String username) {
-        Optional<User> userOpt = userRepository.findByUsername(username);
+    private void recordFailedAttempt(String identifier) {
+        Optional<User> userOpt = loginIdentifierService.findUnambiguousUser(identifier);
         if (userOpt.isEmpty()) {
-            loginAuditService.record(null, username, LoginAuditEventType.LOGIN_FAILURE, "Unknown username");
+            loginAuditService.record(null, auditIdentifier(identifier),
+                    LoginAuditEventType.LOGIN_FAILURE, "Invalid credentials");
             return;
         }
         User user = userOpt.get();
@@ -114,15 +138,17 @@ public class AuthServiceImpl implements AuthService {
         int maxAttempts = settingsService.getIntValue(SettingKey.MAX_FAILED_LOGIN_ATTEMPTS);
         if (attempts >= maxAttempts && user.getStatus() != User.UserStatus.LOCKED) {
             user.setStatus(User.UserStatus.LOCKED);
-            user.setLockedAt(LocalDateTime.now());
+            user.setLockedAt(clockProvider.now());
+            invalidateTokens(user, user.getUsername());
             userRepository.save(user);
-            loginAuditService.record(user, username, LoginAuditEventType.ACCOUNT_LOCKED,
+            loginAuditService.record(user, user.getUsername(), LoginAuditEventType.ACCOUNT_LOCKED,
                     "Locked after " + attempts + " consecutive failed attempts");
-            log.warn("AuthServiceImpl:recordFailedAttempt :: username={} LOCKED after {} attempts", username, attempts);
+            log.warn("AuthServiceImpl:recordFailedAttempt :: userId={} locked after {} attempts",
+                    user.getId(), attempts);
             return;
         }
         userRepository.save(user);
-        loginAuditService.record(user, username, LoginAuditEventType.LOGIN_FAILURE,
+        loginAuditService.record(user, user.getUsername(), LoginAuditEventType.LOGIN_FAILURE,
                 "Attempt " + attempts + "/" + maxAttempts);
     }
 
@@ -141,17 +167,18 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public void logout(String username) {
         log.info("AuthServiceImpl:logout :: username={}", username);
-        userRepository.findByUsername(username).ifPresent(user -> {
-            refreshTokenService.revokeByUserId(user.getId());
+        userRepository.findByUsernameIgnoreCase(username.trim()).ifPresent(user -> {
+            invalidateTokens(user, username);
+            userRepository.save(user);
             loginAuditService.record(user, username, LoginAuditEventType.LOGOUT, null);
         });
     }
 
     @Override
     @Transactional
-    public void changePassword(String username, ChangePasswordRequest request) {
+    public TokenResponse changePassword(String username, ChangePasswordRequest request) {
         log.info("AuthServiceImpl:changePassword :: username={}", username);
-        User user = userRepository.findByUsername(username)
+        User user = userRepository.findByUsernameIgnoreCase(username.trim())
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())) {
             log.warn("AuthServiceImpl:changePassword :: Current password mismatch for username={}", username);
@@ -164,17 +191,25 @@ public class AuthServiceImpl implements AuthService {
         String encoded = passwordEncoder.encode(request.getNewPassword());
         user.setPasswordHash(encoded);
         user.setMustChangePassword(false);
+        user.setCredentialsExpired(false);
+        user.setTemporaryPasswordIssuedAt(null);
+        user.setTemporaryPasswordExpiresAt(null);
+        invalidateTokens(user, username);
         userRepository.save(user);
         passwordPolicyService.recordPasswordChange(user, encoded);
-        refreshTokenService.revokeByUserId(user.getId());
         loginAuditService.record(user, username, LoginAuditEventType.PASSWORD_CHANGE, null);
+
+        String accessToken = jwtService.generateToken(user);
+        String refreshToken = refreshTokenService.createRefreshToken(user).getToken();
         log.info("AuthServiceImpl:changePassword :: SUCCESS username={}", username);
+        return buildTokenResponse(user, accessToken, refreshToken);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public UserProfileResponse getProfile(String username) {
         log.debug("AuthServiceImpl:getProfile :: username={}", username);
-        User user = userRepository.findByUsername(username)
+        User user = userRepository.findByUsernameIgnoreCase(username.trim())
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         String employeeCategory = null;
@@ -186,7 +221,15 @@ public class AuthServiceImpl implements AuthService {
         return UserProfileResponse.builder()
                 .id(user.getId()).username(user.getUsername()).fullName(user.getFullName())
                 .role(user.getRole().name()).employeeId(user.getEmployeeId()).status(user.getStatus().name())
+                .roles(roleNames(user))
                 .mustChangePassword(user.getMustChangePassword())
+                .credentialsExpired(user.getCredentialsExpired())
+                .failedLoginAttempts(user.getFailedLoginAttempts()).lockedAt(user.getLockedAt())
+                .lastLoginAt(user.getLastLoginAt())
+                .temporaryPasswordIssuedAt(user.getTemporaryPasswordIssuedAt())
+                .temporaryPasswordExpiresAt(user.getTemporaryPasswordExpiresAt())
+                .enabled(user.isEnabled())
+                .accountNonLocked(user.isAccountNonLocked())
                 .employeeCategory(employeeCategory)
                 .build();
     }
@@ -213,8 +256,8 @@ public class AuthServiceImpl implements AuthService {
         String token = UUID.randomUUID().toString();
         passwordResetTokenRepository.save(PasswordResetToken.builder()
                 .user(user).token(token)
-                .expiresAt(LocalDateTime.now().plusMinutes(expiryMinutes))
-                .used(false).createdDate(LocalDateTime.now())
+                .expiresAt(clockProvider.now().plusMinutes(expiryMinutes))
+                .used(false).createdDate(clockProvider.now())
                 .build());
 
         String resetLink = resetPasswordUrlBase + "?token=" + token;
@@ -231,7 +274,7 @@ public class AuthServiceImpl implements AuthService {
         if (Boolean.TRUE.equals(resetToken.getUsed())) {
             throw new BusinessException("RESET_TOKEN_ALREADY_USED: this reset link has already been used");
         }
-        if (resetToken.getExpiresAt().isBefore(LocalDateTime.now())) {
+        if (!resetToken.getExpiresAt().isAfter(clockProvider.now())) {
             throw new BusinessException("RESET_TOKEN_EXPIRED: this reset link has expired — request a new one");
         }
 
@@ -242,6 +285,9 @@ public class AuthServiceImpl implements AuthService {
         String encoded = passwordEncoder.encode(newPassword);
         user.setPasswordHash(encoded);
         user.setMustChangePassword(false);
+        user.setCredentialsExpired(false);
+        user.setTemporaryPasswordIssuedAt(null);
+        user.setTemporaryPasswordExpiresAt(null);
         user.setFailedLoginAttempts(0);
         if (user.getStatus() == User.UserStatus.LOCKED) {
             user.setStatus(User.UserStatus.ACTIVE);
@@ -249,13 +295,13 @@ public class AuthServiceImpl implements AuthService {
             loginAuditService.record(user, user.getUsername(), LoginAuditEventType.ACCOUNT_UNLOCKED,
                     "Unlocked via successful password reset");
         }
+        invalidateTokens(user, user.getUsername());
         userRepository.save(user);
         passwordPolicyService.recordPasswordChange(user, encoded);
 
         resetToken.setUsed(true);
         passwordResetTokenRepository.save(resetToken);
 
-        refreshTokenService.revokeByUserId(user.getId());
         loginAuditService.record(user, user.getUsername(), LoginAuditEventType.PASSWORD_RESET, null);
         log.info("AuthServiceImpl:resetPassword :: SUCCESS username={}", user.getUsername());
     }
@@ -264,7 +310,37 @@ public class AuthServiceImpl implements AuthService {
         return TokenResponse.builder()
                 .accessToken(accessToken).refreshToken(refreshToken).tokenType("Bearer")
                 .username(user.getUsername()).fullName(user.getFullName()).role(user.getRole().name())
+                .roles(roleNames(user))
                 .mustChangePassword(user.getMustChangePassword())
                 .build();
+    }
+
+    private void auditLoginFailure(String identifier, String remarks) {
+        User user = loginIdentifierService.findUnambiguousUser(identifier).orElse(null);
+        loginAuditService.record(user, user == null ? auditIdentifier(identifier) : user.getUsername(),
+                LoginAuditEventType.LOGIN_FAILURE, remarks);
+    }
+
+    private String auditIdentifier(String identifier) {
+        if (identifier == null || identifier.isBlank()) {
+            return "UNKNOWN";
+        }
+        String trimmed = identifier.trim();
+        return trimmed.substring(0, Math.min(50, trimmed.length()));
+    }
+
+    private void invalidateTokens(User user, String actor) {
+        long currentVersion = user.getTokenVersion() == null ? 0L : user.getTokenVersion();
+        user.setTokenVersion(currentVersion + 1);
+        user.setUpdatedBy(actor);
+        user.setUpdatedDate(clockProvider.now());
+        refreshTokenService.revokeByUserId(user.getId());
+    }
+
+    private java.util.Set<String> roleNames(User user) {
+        return user.getRoles().stream()
+                .sorted()
+                .map(Enum::name)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 }
