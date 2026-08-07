@@ -85,6 +85,10 @@ public class PayrollCalculationLog {
     @Column(name = "holiday_ot_amount", nullable = false, precision = 12, scale = 2)
     @Builder.Default
     private BigDecimal holidayOtAmount = BigDecimal.ZERO;
+    /** Mirrors PayrollDetail.performanceIncentiveAmount — same read-only value logged here for audit parity. */
+    @Column(name = "performance_incentive_amount", nullable = false, precision = 12, scale = 2)
+    @Builder.Default
+    private BigDecimal performanceIncentiveAmount = BigDecimal.ZERO;
     @Column(name = "leave_encashment_days", nullable = false, precision = 6, scale = 2)
     @Builder.Default
     private BigDecimal leaveEncashmentDays = BigDecimal.ZERO;

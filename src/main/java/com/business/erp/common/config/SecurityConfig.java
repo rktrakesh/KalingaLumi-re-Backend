@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -48,10 +49,22 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/v1/auth/login", "/api/v1/auth/refresh").permitAll()
+                        .requestMatchers("/api/v1/auth/login", "/api/v1/auth/refresh",
+                                "/api/v1/auth/forgot-password", "/api/v1/auth/reset-password").permitAll()
+                        .requestMatchers("/api/v1/auth/logout", "/api/v1/auth/me",
+                                "/api/v1/auth/change-password", "/api/v1/notifications/**").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/performance/me")
+                                .hasAnyRole("ADMIN", "MANAGER", "SUPERVISOR", "EMPLOYEE", "SALES")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/public/branding",
+                                "/api/v1/public/branding/company-logo/*").permitAll()
+                        .requestMatchers("/api/v1/employees/**")
+                                .hasAnyRole("ADMIN", "HR", "MANAGER", "EMPLOYEE", "SALES")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/masters/**")
+                                .hasAnyRole("ADMIN", "HR", "MANAGER", "EMPLOYEE")
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
                         .requestMatchers("/actuator/health").permitAll()
-                        .anyRequest().authenticated()
+                        .anyRequest().hasAnyRole(
+                                "ADMIN", "MANAGER", "SUPERVISOR", "EMPLOYEE")
                 )
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);

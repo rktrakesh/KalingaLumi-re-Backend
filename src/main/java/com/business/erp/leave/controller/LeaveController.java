@@ -1,6 +1,6 @@
 package com.business.erp.leave.controller;
 
-import com.business.erp.auth.controller.UserManagementController;
+import com.business.erp.auth.service.AuthenticatedEmployeeAccessService;
 import com.business.erp.common.response.ApiResponse;
 import com.business.erp.common.response.PageResponse;
 import com.business.erp.leave.dto.request.ApproveRejectLeaveRequest;
@@ -34,6 +34,7 @@ import java.util.List;
 public class LeaveController {
 
     private final LeaveService leaveService;
+    private final AuthenticatedEmployeeAccessService employeeAccessService;
     private final Logger log = LoggerFactory.getLogger(LeaveController.class);
 
     @PostMapping("/request")
@@ -41,6 +42,7 @@ public class LeaveController {
     public ResponseEntity<ApiResponse<LeaveResponse>> createRequest(
             @Valid @RequestBody LeaveRequestDto req,
             @AuthenticationPrincipal UserDetails user) {
+        employeeAccessService.requireAdminOrSelf(user, req.getEmployeeId());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.ok(leaveService.createRequest(req, user.getUsername()), "Leave request submitted"));
     }
@@ -57,8 +59,11 @@ public class LeaveController {
 
     @GetMapping("/my/{employeeId}")
     @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_EMPLOYEE')")
-    public ResponseEntity<ApiResponse<List<LeaveResponse>>> getMyLeaves(@PathVariable Long employeeId) {
-        return ResponseEntity.ok(ApiResponse.ok(leaveService.getMyLeaves(employeeId)));
+    public ResponseEntity<ApiResponse<List<LeaveResponse>>> getMyLeaves(
+            @PathVariable Long employeeId,
+            @AuthenticationPrincipal UserDetails user) {
+        Long authorizedEmployeeId = employeeAccessService.requireAdminOrSelf(user, employeeId);
+        return ResponseEntity.ok(ApiResponse.ok(leaveService.getMyLeaves(authorizedEmployeeId)));
     }
 
     @PutMapping("/{id}/approve")
@@ -81,7 +86,11 @@ public class LeaveController {
     @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_EMPLOYEE')")
     public ResponseEntity<ApiResponse<LeaveBalanceResponse>> getBalance(
             @PathVariable Long employeeId,
-            @RequestParam int year, @RequestParam int month) {
-        return ResponseEntity.ok(ApiResponse.ok(leaveService.getBalance(employeeId, year, month)));
+            @RequestParam int year,
+            @RequestParam int month,
+            @AuthenticationPrincipal UserDetails user) {
+        Long authorizedEmployeeId = employeeAccessService.requireAdminOrSelf(user, employeeId);
+        return ResponseEntity.ok(ApiResponse.ok(
+                leaveService.getBalance(authorizedEmployeeId, year, month)));
     }
 }

@@ -1,8 +1,11 @@
 package com.business.erp.settings.entity;
 
 import com.business.erp.common.audit.AuditableEntity;
+import com.business.erp.settings.enums.SettingCategory;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDate;
 
@@ -19,6 +22,14 @@ public class AppSetting extends AuditableEntity {
     private Long id;
     @Column(name = "setting_key", nullable = false, unique = true, length = 100)
     private String settingKey;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "setting_category", nullable = false, length = 40)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    private SettingCategory settingCategory;
+    @Column(name = "data_type", nullable = false, length = 20)
+    private String dataType;
+    @Column(nullable = false)
+    private boolean editable;
     @Column(name = "setting_value", nullable = false, length = 500)
     private String settingValue;
     @Column(length = 500)

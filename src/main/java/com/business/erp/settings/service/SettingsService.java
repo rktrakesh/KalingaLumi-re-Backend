@@ -3,10 +3,13 @@ package com.business.erp.settings.service;
 import com.business.erp.settings.entity.AppSetting;
 import com.business.erp.settings.entity.AppSettingHistory;
 import com.business.erp.settings.enums.SettingKey;
+import com.business.erp.settings.enums.SettingCategory;
+import com.business.erp.settings.dto.response.SettingUpdateResult;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import com.business.erp.settings.dto.response.SettingResponse;
 
 public interface SettingsService {
     String getCurrentValue(SettingKey key);
@@ -23,9 +26,14 @@ public interface SettingsService {
 
     BigDecimal getDecimalValueAsOf(SettingKey key, LocalDate asOfDate);
 
-    AppSetting updateSetting(SettingKey key, String newValue, String changedBy);
+    SettingUpdateResult updateSetting(SettingKey key, String newValue, String changedBy);
 
     List<AppSetting> getAllSettings();
 
+    List<AppSetting> getAllSettings(SettingCategory category);
+    List<SettingResponse> getAllSettingResponses(SettingCategory category);
+
     List<AppSettingHistory> getHistory(SettingKey key);
+
+    void activateDueSettings();
 }

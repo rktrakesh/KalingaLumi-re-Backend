@@ -41,7 +41,7 @@ public class ReportServiceImpl implements ReportService {
         LocalDate from = LocalDate.of(year, month, 1);
         LocalDate to = from.withDayOfMonth(from.lengthOfMonth());
 
-        var employees = employeeService.getActiveEmployees();
+        var employees = employeeService.getAttendanceEligibleEmployees();
         var summaries = employees.stream().map(emp -> {
             var records = attendanceRepository
                     .findByEmployeeIdAndAttendanceDateBetweenOrderByAttendanceDateAsc(emp.getId(), from, to);

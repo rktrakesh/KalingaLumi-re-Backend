@@ -39,9 +39,12 @@ public class HolidayServiceImpl implements HolidayService {
         Holiday holiday = holidayRepository.save(Holiday.builder()
                 .holidayDate(req.getHolidayDate()).name(req.getName()).holidayType(req.getHolidayType())
                 .workAllowed(req.isWorkAllowed()).applicableState(req.getApplicableState()).build());
-        List<Employee> activeEmps = employeeService.getActiveEmployees();
+        List<Employee> activeEmps = employeeService.getAttendanceEligibleEmployees();
         int created = 0;
         for (Employee emp : activeEmps) {
+            if (req.getHolidayDate().isBefore(emp.getJoiningDate())) {
+                continue;
+            }
             if (attendanceRepository.findByEmployeeIdAndAttendanceDate(emp.getId(), req.getHolidayDate()).isEmpty()) {
                 attendanceRepository.save(AttendanceRecord.builder()
                         .employee(emp).attendanceDate(req.getHolidayDate())

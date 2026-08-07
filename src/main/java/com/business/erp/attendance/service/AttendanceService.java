@@ -16,6 +16,8 @@ public interface AttendanceService {
 
     AttendanceResponse checkOut(Long attendanceId, CheckOutRequest request);
 
+    AttendanceResponse getById(Long attendanceId);
+
     AttendanceResponse correct(Long id, CorrectAttendanceRequest request, String updatedBy);
 
     PageResponse<AttendanceResponse> search(Long employeeId, LocalDate date,

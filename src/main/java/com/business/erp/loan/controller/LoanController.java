@@ -1,6 +1,6 @@
 package com.business.erp.loan.controller;
 
-import com.business.erp.auth.controller.UserManagementController;
+import com.business.erp.auth.service.AuthenticatedEmployeeAccessService;
 import com.business.erp.common.response.ApiResponse;
 import com.business.erp.common.response.PageResponse;
 import com.business.erp.loan.dto.request.CreateLoanRequest;
@@ -12,7 +12,6 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Pageable;
@@ -34,24 +33,28 @@ import java.util.List;
 public class LoanController {
 
     private final LoanService loanService;
+    private final AuthenticatedEmployeeAccessService employeeAccessService;
     private final Logger log = LoggerFactory.getLogger(LoanController.class);
 
     @PostMapping
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_EMPLOYEE')")
     public ResponseEntity<ApiResponse<LoanResponse>> create(
             @Valid @RequestBody CreateLoanRequest req,
             @AuthenticationPrincipal UserDetails user) {
+        employeeAccessService.requireAdminOrSelf(user, req.getEmployeeId());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.ok(loanService.create(req, user.getUsername()), "Loan request created"));
     }
 
     @GetMapping
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_EMPLOYEE')")
     public ResponseEntity<ApiResponse<PageResponse<LoanResponse>>> getAll(
             @RequestParam(required = false) Long employeeId,
             @RequestParam(required = false) EmployeeLoan.LoanStatus status,
-            @PageableDefault(size = 20) Pageable pageable) {
-        return ResponseEntity.ok(ApiResponse.ok(loanService.search(employeeId, status, pageable)));
+            @PageableDefault(size = 20) Pageable pageable,
+            @AuthenticationPrincipal UserDetails user) {
+        Long authorizedEmployeeId = employeeAccessService.requireAdminOrSelf(user, employeeId);
+        return ResponseEntity.ok(ApiResponse.ok(loanService.search(authorizedEmployeeId, status, pageable)));
     }
 
     @PutMapping("/{id}/approve")
@@ -78,7 +81,10 @@ public class LoanController {
 
     @GetMapping("/employee/{empId}/active")
     @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_EMPLOYEE')")
-    public ResponseEntity<ApiResponse<LoanResponse>> getActiveLoan(@PathVariable Long empId) {
-        return ResponseEntity.ok(ApiResponse.ok(loanService.getActiveLoan(empId)));
+    public ResponseEntity<ApiResponse<LoanResponse>> getActiveLoan(
+            @PathVariable Long empId,
+            @AuthenticationPrincipal UserDetails user) {
+        Long authorizedEmployeeId = employeeAccessService.requireAdminOrSelf(user, empId);
+        return ResponseEntity.ok(ApiResponse.ok(loanService.getActiveLoan(authorizedEmployeeId)));
     }
 }

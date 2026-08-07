@@ -3,9 +3,9 @@ spring:
     name: KalingaLumiere-Backend
 
   datasource:
-    url: ${DB_URL:jdbc:mysql://localhost:3306/kalinga_lumiere_erp_db}
-    username: ${DB_USERNAME:root}
-    password: ${DB_PASSWORD:root}
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
       pool-name: KalingaLumiereHikariPool
@@ -31,6 +31,24 @@ spring:
         order_inserts: true
         order_updates: true
 
+  mail:
+    host: ${MAIL_HOST}
+    port: ${MAIL_PORT}
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+  servlet:
+    multipart:
+      max-file-size: ${MULTIPART_MAX_FILE_SIZE:5MB}
+      max-request-size: ${MULTIPART_MAX_REQUEST_SIZE:6MB}
+
+
   flyway:
     enabled: true
     locations: classpath:db/migration
@@ -47,7 +65,7 @@ spring:
       fail-on-unknown-properties: false
 
 server:
-  port: ${SERVER_PORT:9090}
+  port: ${SERVER_PORT}
   servlet:
     context-path: /
   compression:
@@ -55,13 +73,32 @@ server:
     mime-types: application/json,text/html,text/plain
 
 app:
+  storage:
+    provider: ${STORAGE_PROVIDER:local}
+    path: ${STORAGE_PATH:uploads}
+    max-logo-bytes: ${MAX_LOGO_BYTES:2097152}
+    employee-documents:
+      profile-photo-max-size: ${EMPLOYEE_PROFILE_PHOTO_MAX_SIZE:200KB}
+      pan-max-size: ${EMPLOYEE_PAN_MAX_SIZE:1MB}
+      identity-proof-max-size: ${EMPLOYEE_IDENTITY_PROOF_MAX_SIZE:2MB}
+      bank-proof-max-size: ${EMPLOYEE_BANK_PROOF_MAX_SIZE:5MB}
+      certificate-max-size: ${EMPLOYEE_CERTIFICATE_MAX_SIZE:2MB}
+      driving-license-max-size: ${EMPLOYEE_DRIVING_LICENSE_MAX_SIZE:1MB}
+      appointment-letter-max-size: ${EMPLOYEE_APPOINTMENT_LETTER_MAX_SIZE:2MB}
+      salary-slip-acknowledgement-max-size: ${EMPLOYEE_SALARY_SLIP_ACK_MAX_SIZE:2MB}
   jwt:
-    secret: ${JWT_SECRET:S2FsaW5nYUx1bWllcmVTdXBlclNlY3VyZUpXVFNlY3JldEtleTIwMjQ=}
-    expiration: ${JWT_EXPIRATION:86400000}
-    refresh-expiration: ${JWT_REFRESH_EXPIRATION:604800000}
+    secret: ${JWT_SECRET}
+    expiration: ${JWT_EXPIRATION}
+    refresh-expiration: ${JWT_REFRESH_EXPIRATION}
   cors:
-    allowed-origins: ${CORS_ORIGINS:http://localhost:9999}
+    allowed-origins: ${CORS_ORIGINS}
+  security:
+    trust-proxy-headers: ${TRUST_PROXY_HEADERS:false}
   timezone: Asia/Kolkata
+  mail:
+    from: ${MAIL_FROM}
+  frontend:
+    reset-password-url: ${FRONTEND_RESET_PASSWORD_URL}
 
 logging:
   level:

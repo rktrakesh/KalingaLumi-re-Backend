@@ -2,6 +2,7 @@ package com.business.erp.common.clock;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.time.Clock;
 
@@ -9,7 +10,7 @@ import java.time.Clock;
 @Configuration
 public class ClockConfig {
     @Bean
-    public Clock clock() {
-        return Clock.systemDefaultZone();
+    public Clock clock(@Value("${app.timezone:Asia/Kolkata}") String timezone) {
+        return Clock.system(java.time.ZoneId.of(timezone));
     }
 }

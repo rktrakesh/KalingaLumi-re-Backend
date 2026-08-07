@@ -6,6 +6,10 @@ import com.business.erp.attendance.dto.CheckOutRequest;
 import com.business.erp.attendance.dto.CorrectAttendanceRequest;
 import com.business.erp.attendance.entity.AttendanceRecord;
 import com.business.erp.attendance.service.AttendanceService;
+import com.business.erp.auth.service.AuthenticatedEmployeeAccessService;
+import com.business.erp.auth.entity.User;
+import com.business.erp.common.clock.ClockProvider;
+import com.business.erp.common.exception.BusinessException;
 import com.business.erp.common.response.ApiResponse;
 import com.business.erp.common.response.PageResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -35,23 +39,37 @@ import java.util.List;
 public class AttendanceController {
 
     private final AttendanceService attendanceService;
+    private final AuthenticatedEmployeeAccessService employeeAccessService;
+    private final ClockProvider clockProvider;
     private final Logger log = LoggerFactory.getLogger(AttendanceController.class);
 
     @PostMapping("/check-in")
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_SUPERVISOR')")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_SUPERVISOR','ROLE_EMPLOYEE')")
     @Operation(summary = "Record check-in", description = "Mark an employee as PRESENT with check-in time")
     public ResponseEntity<ApiResponse<AttendanceResponse>> checkIn(
             @Valid @RequestBody CheckInRequest request,
             @AuthenticationPrincipal UserDetails user) {
+        employeeAccessService.requireAdminSupervisorOrSelf(user, request.getEmployeeId());
+        if (user instanceof User appUser
+                && appUser.getRoles().contains(User.Role.ROLE_EMPLOYEE)
+                && !appUser.getRoles().contains(User.Role.ROLE_ADMIN)
+                && !appUser.getRoles().contains(User.Role.ROLE_SUPERVISOR)
+                && !clockProvider.today().equals(request.getAttendanceDate())) {
+            throw new BusinessException("Employees can record attendance only for today");
+        }
         log.info("AttendanceController:checkIn :: empId={} date={} by={}", request.getEmployeeId(), request.getAttendanceDate(), user.getUsername());
         return ResponseEntity.ok(ApiResponse.ok(attendanceService.checkIn(request, user.getUsername())));
     }
 
     @PutMapping("/{id}/check-out")
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_SUPERVISOR')")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_SUPERVISOR','ROLE_EMPLOYEE')")
     @Operation(summary = "Record check-out", description = "Record check-out time and calculate worked minutes. Auto-raises overtime request if worked hours exceed standard hours")
     public ResponseEntity<ApiResponse<AttendanceResponse>> checkOut(
-            @PathVariable Long id, @Valid @RequestBody CheckOutRequest request) {
+            @PathVariable Long id,
+            @Valid @RequestBody CheckOutRequest request,
+            @AuthenticationPrincipal UserDetails user) {
+        AttendanceResponse attendance = attendanceService.getById(id);
+        employeeAccessService.requireAdminSupervisorOrSelf(user, attendance.getEmployeeId());
         log.info("AttendanceController:checkOut :: attendanceId={}", id);
         return ResponseEntity.ok(ApiResponse.ok(attendanceService.checkOut(id, request)));
     }
@@ -85,9 +103,15 @@ public class AttendanceController {
     @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_MANAGER','ROLE_EMPLOYEE')")
     @Operation(summary = "Monthly attendance", description = "Get full monthly attendance list for an employee")
     public ResponseEntity<ApiResponse<List<AttendanceResponse>>> getMonthly(
-            @PathVariable Long employeeId, @RequestParam int year, @RequestParam int month) {
+            @PathVariable Long employeeId,
+            @RequestParam int year,
+            @RequestParam int month,
+            @AuthenticationPrincipal UserDetails user) {
+        Long authorizedEmployeeId = employeeAccessService
+                .requireAdminManagerOrSelf(user, employeeId);
         log.debug("AttendanceController:getMonthly :: empId={} {}/{}", employeeId, year, month);
-        return ResponseEntity.ok(ApiResponse.ok(attendanceService.getMonthlyAttendance(employeeId, year, month)));
+        return ResponseEntity.ok(ApiResponse.ok(
+                attendanceService.getMonthlyAttendance(authorizedEmployeeId, year, month)));
     }
 
     @GetMapping("/pending-checkout")

@@ -1,6 +1,7 @@
 package com.business.erp.common.clock;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 /**
  * Abstraction over "what is today" for anything that needs deterministic, testable date
@@ -11,4 +12,6 @@ import java.time.LocalDate;
  */
 public interface ClockProvider {
     LocalDate today();
+
+    LocalDateTime now();
 }

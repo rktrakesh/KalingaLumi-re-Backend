@@ -2,6 +2,7 @@ package com.business.erp.sales.entity;
 
 import com.business.erp.common.audit.AuditableEntity;
 import com.business.erp.customer.entity.Customer;
+import com.business.erp.employee.entity.Employee;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
@@ -34,6 +35,14 @@ public class SalesInvoice extends AuditableEntity {
 
     @Column(name = "invoice_date", nullable = false)
     private LocalDate invoiceDate;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "sold_by_employee_id")
+    private Employee soldBy;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "credited_to_employee_id")
+    private Employee creditedTo;
 
     @Column(name = "due_date", nullable = false)
     private LocalDate dueDate;

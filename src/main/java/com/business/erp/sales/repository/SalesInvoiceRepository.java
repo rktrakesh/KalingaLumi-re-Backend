@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 
 public interface SalesInvoiceRepository extends JpaRepository<SalesInvoice, Long> {
     @Query("SELECT s FROM SalesInvoice s WHERE " +
@@ -25,4 +26,17 @@ public interface SalesInvoiceRepository extends JpaRepository<SalesInvoice, Long
     @Query("SELECT COALESCE(SUM(s.totalAmount), 0) FROM SalesInvoice s WHERE s.status = 'ACTIVE' " +
             "AND s.invoiceDate BETWEEN :from AND :to")
     BigDecimal sumRevenueByPeriod(@Param("from") LocalDate from, @Param("to") LocalDate to);
+
+    @Query("SELECT DISTINCT s FROM SalesInvoice s LEFT JOIN FETCH s.returns " +
+            "WHERE s.creditedTo.id = :employeeId AND s.status = 'ACTIVE' " +
+            "AND s.invoiceDate BETWEEN :from AND :to")
+    List<SalesInvoice> findCreditedInvoicesForPeriod(@Param("employeeId") Long employeeId,
+                                                     @Param("from") LocalDate from,
+                                                     @Param("to") LocalDate to);
+
+    boolean existsByCustomerIdAndInvoiceDateBeforeAndStatus(Long customerId, LocalDate date, SalesInvoice.InvoiceStatus status);
+
+    @Query("SELECT COALESCE(SUM(s.outstandingAmount), 0) FROM SalesInvoice s " +
+            "WHERE s.creditedTo.id = :employeeId AND s.status = 'ACTIVE'")
+    BigDecimal sumOutstandingForEmployee(@Param("employeeId") Long employeeId);
 }
