@@ -89,6 +89,34 @@ mvn clean install -DskipTests
 mvn spring-boot:run
 ```
 
+### Environment Profiles
+
+The backend provides two explicit Spring profiles:
+
+| Profile | Configuration | Purpose |
+|---------|---------------|---------|
+| `prod` | `application-prod.yml` | Production database, secrets, mail, CORS, durable storage, restricted API documentation |
+| `test` | `application-test.yml` | Isolated MySQL test database, local test storage, local mail catcher, Swagger enabled |
+
+Use `.env.prod.example` and `.env.test.example` as variable templates. These
+files are not loaded automatically by Spring Boot; load their values through
+your shell, IDE, container platform, or secret manager.
+
+Run the production profile only after supplying every required `PROD_*` secret:
+
+```bash
+mvn spring-boot:run -Dspring-boot.run.profiles=prod
+```
+
+Run the isolated test environment with a dedicated MySQL database:
+
+```bash
+mvn spring-boot:run -Dspring-boot.run.profiles=test
+```
+
+Never point `TEST_DB_URL` at the production database. Flyway schema validation
+and migrations remain enabled in both profiles; Flyway clean is disabled.
+
 ### 4. Default Admin Login
 
 ```
