@@ -78,12 +78,14 @@ public class EmployeeSalesPolicyServiceImpl implements EmployeeSalesPolicyServic
     }
 
     @Override
+    @Transactional(readOnly = true)
     public EmployeeSalesPolicy getActivePolicy(Long employeeId) {
         return salesPolicyRepository.findByEmployeeIdAndStatus(employeeId, SalesPolicyStatus.ACTIVE)
                 .orElseThrow(() -> new ResourceNotFoundException("Active sales policy for employeeId=" + employeeId));
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<EmployeeSalesPolicy> getPolicyHistory(Long employeeId) {
         return salesPolicyRepository.findByEmployeeIdOrderByVersionDesc(employeeId);
     }
